@@ -7,6 +7,7 @@ services:
   - type: web
     name: dentflow-backend
     runtime: python
+    rootDir: backend
     plan: free
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
     startCommand: gunicorn dentflow.wsgi:application --bind 0.0.0.0:$PORT
@@ -47,6 +48,7 @@ services:
   - type: cron
     name: dentflow-morning-reminders
     runtime: python
+    rootDir: backend
     plan: free
     schedule: "0 1 * * *"  # 1:30 AM UTC = 7:00 AM IST
     buildCommand: pip install -r requirements.txt
@@ -82,6 +84,7 @@ services:
   - type: cron
     name: dentflow-evening-reminders
     runtime: python
+    rootDir: backend
     plan: free
     schedule: "30 13 * * *"  # 1:30 PM UTC = 7:00 PM IST
     buildCommand: pip install -r requirements.txt
