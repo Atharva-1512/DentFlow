@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DentFlow</string>
+    <string name="title_activity_main">DentFlow</string>
+    <string name="package_name">com.dentflow.app</string>
+    <string name="custom_url_scheme">com.dentflow.app</string>
+</resources>
