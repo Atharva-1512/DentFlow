@@ -140,6 +140,15 @@ export const Login: React.FC = () => {
           {isSubmitting ? <CircularProgress size={24} color="inherit" /> : 'Login'}
         </Button>
       </form>
+
+      <Button
+        variant="text"
+        fullWidth
+        onClick={() => navigate('/register')}
+        sx={{ mt: 2, textTransform: 'none' }}
+      >
+        Don't have an account? Register your clinic
+      </Button>
     </Box>
   );
 };

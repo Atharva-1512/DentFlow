@@ -1,0 +1,115 @@
+databases:
+  - name: dentflow-db
+    databaseName: dentflow
+    plan: free
+
+services:
+  - type: web
+    name: dentflow-backend
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput && python manage.py migrate
+    startCommand: gunicorn dentflow.wsgi:application --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: ALLOWED_HOSTS
+        value: "*"
+      - key: DB_ENGINE
+        value: django.db.backends.postgresql
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dentflow-db
+          property: connectionString
+      - key: TRIAL_ENABLED
+        value: "True"
+      - key: TRIAL_DAYS
+        value: "30"
+      - key: SUBSCRIPTION_GRACE_DAYS
+        value: "3"
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_WHATSAPP_FROM
+        value: "+14155238886"
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: RAZORPAY_WEBHOOK_SECRET
+        sync: false
+
+  - type: cron
+    name: dentflow-morning-reminders
+    runtime: python
+    plan: free
+    schedule: "0 1 * * *"  # 1:30 AM UTC = 7:00 AM IST
+    buildCommand: pip install -r requirements.txt
+    startCommand: python manage.py cron_daily_reminders --slot morning
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: SECRET_KEY
+        fromService:
+          name: dentflow-backend
+          envVarKey: SECRET_KEY
+      - key: DEBUG
+        value: "False"
+      - key: DB_ENGINE
+        value: django.db.backends.postgresql
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dentflow-db
+          property: connectionString
+      - key: TWILIO_ACCOUNT_SID
+        fromService:
+          name: dentflow-backend
+          envVarKey: TWILIO_ACCOUNT_SID
+      - key: TWILIO_AUTH_TOKEN
+        fromService:
+          name: dentflow-backend
+          envVarKey: TWILIO_AUTH_TOKEN
+      - key: TWILIO_WHATSAPP_FROM
+        fromService:
+          name: dentflow-backend
+          envVarKey: TWILIO_WHATSAPP_FROM
+
+  - type: cron
+    name: dentflow-evening-reminders
+    runtime: python
+    plan: free
+    schedule: "30 13 * * *"  # 1:30 PM UTC = 7:00 PM IST
+    buildCommand: pip install -r requirements.txt
+    startCommand: python manage.py cron_daily_reminders --slot evening
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: SECRET_KEY
+        fromService:
+          name: dentflow-backend
+          envVarKey: SECRET_KEY
+      - key: DEBUG
+        value: "False"
+      - key: DB_ENGINE
+        value: django.db.backends.postgresql
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dentflow-db
+          property: connectionString
+      - key: TWILIO_ACCOUNT_SID
+        fromService:
+          name: dentflow-backend
+          envVarKey: TWILIO_ACCOUNT_SID
+      - key: TWILIO_AUTH_TOKEN
+        fromService:
+          name: dentflow-backend
+          envVarKey: TWILIO_AUTH_TOKEN
+      - key: TWILIO_WHATSAPP_FROM
+        fromService:
+          name: dentflow-backend
+          envVarKey: TWILIO_WHATSAPP_FROM

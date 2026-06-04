@@ -2,9 +2,7 @@ import logging
 import phonenumbers
 from django.conf import settings
 from django.utils import timezone
-from clinics.models import Clinic
 from notifications.models import NotificationLog, RecipientType
-from notifications.providers.twilio import TwilioWhatsAppProvider
 
 logger = logging.getLogger('dentflow.notifications')
 
@@ -20,20 +18,22 @@ class WhatsAppService:
             from django.conf import settings
             account_sid = getattr(settings, 'TWILIO_ACCOUNT_SID', '')
             auth_token = getattr(settings, 'TWILIO_AUTH_TOKEN', '')
+            from_number = getattr(settings, 'TWILIO_WHATSAPP_FROM', '')
             
-            # Use mock provider if settings are empty or contain default placeholders
-            is_mock = (
-                not account_sid or
-                'placeholder' in account_sid.lower() or
-                'your_twilio' in account_sid.lower()
+            # Use real Twilio provider only when all three credentials are properly set
+            is_configured = (
+                account_sid and auth_token and from_number
+                and account_sid.startswith('AC')  # Twilio Account SIDs always start with 'AC'
             )
             
-            if is_mock:
-                from notifications.providers.mock import MockWhatsAppProvider
-                self.provider = MockWhatsAppProvider()
-            else:
+            if is_configured:
                 from notifications.providers.twilio import TwilioWhatsAppProvider
                 self.provider = TwilioWhatsAppProvider()
+                logger.info("Using Twilio WhatsApp provider (live credentials detected).")
+            else:
+                from notifications.providers.mock import MockWhatsAppProvider
+                self.provider = MockWhatsAppProvider()
+                logger.info("Using Mock WhatsApp provider (Twilio credentials not configured).")
 
     def normalize_phone(self, phone_str: str) -> str:
         """

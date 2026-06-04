@@ -102,7 +102,7 @@ api.interceptors.response.use(
       }
 
       try {
-        const response = await axios.post('/api/token/refresh/', { refresh: refreshToken });
+        const response = await axios.post(`${api.defaults.baseURL}/token/refresh/`, { refresh: refreshToken });
         const newAccessToken = response.data.access;
         // Backend returns access and optionally a rotated refresh token
         const newRefreshToken = response.data.refresh || refreshToken;

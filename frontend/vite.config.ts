@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
+    host: '0.0.0.0',  // Expose on LAN for mobile testing
     port: 3000,
     proxy: {
       '/api': {
@@ -11,6 +12,10 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  preview: {
+    host: '0.0.0.0',  // Also expose preview on LAN
+    port: 3000,
   },
   test: {
     globals: true,

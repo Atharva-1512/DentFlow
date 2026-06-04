@@ -32,6 +32,7 @@ import {
   ExitToApp as LogoutIcon,
   AdminPanelSettings as AdminIcon,
   Domain as ClinicIcon,
+  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 
@@ -87,6 +88,7 @@ export const MainLayout: React.FC = () => {
       { text: "Today's Appointments", icon: <ScheduleIcon />, path: '/appointments/today' },
       { text: 'Upcoming Appointments', icon: <EventIcon />, path: '/appointments/upcoming' },
       { text: 'Calendar', icon: <CalendarIcon />, path: '/calendar' },
+      { text: 'Clinic Settings', icon: <SettingsIcon />, path: '/settings' },
       { text: 'Subscription', icon: <SubscriptionIcon />, path: '/subscription' }
     );
   }

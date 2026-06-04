@@ -7,12 +7,14 @@ import { Typography, Card, Container, Box, CircularProgress } from '@mui/materia
 
 // Import real page components
 import Login from '../pages/Login';
+import Register from '../pages/Register';
 import Dashboard from '../pages/Dashboard';
 import PatientList from '../pages/Patients/PatientList';
 import PatientDetail from '../pages/Patients/PatientDetail';
 import UnifiedVisitForm from '../pages/Patients/UnifiedVisitForm';
 import TodayAppointments from '../pages/Appointments/TodayAppointments';
 import UpcomingAppointments from '../pages/Appointments/UpcomingAppointments';
+import ClinicSettings from '../pages/ClinicSettings';
 import ClinicsList from '../pages/Admin/ClinicsList';
 import AdminSubscriptions from '../pages/Admin/AdminSubscriptions';
 import AdminDashboard from '../pages/Admin/AdminDashboard';
@@ -39,6 +41,7 @@ export const AppRoutes: React.FC = () => {
       {/* Public / Guest Routes */}
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
       </Route>
 
       {/* Protected Routes Wrapper */}
@@ -78,6 +81,7 @@ export const AppRoutes: React.FC = () => {
                   <Calendar />
                 </React.Suspense>
               } />
+              <Route path="/settings" element={<ClinicSettings />} />
             </Route>
           </Route>
 

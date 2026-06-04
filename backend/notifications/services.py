@@ -109,8 +109,11 @@ def generate_patient_reminders(target_date):
 def generate_clinic_summaries(target_date, is_previous_day=False):
     """
     Generates clinic-owner summary lists for scheduled appointments.
-    - If is_previous_day=True: generates tomorrow's summary scheduled for 6:00 PM today.
-    - If is_previous_day=False: generates today's summary scheduled for 7:00 AM today.
+    - If is_previous_day=True: generates tomorrow's summary scheduled for 7:00 PM IST today (day before).
+    - If is_previous_day=False: generates today's summary scheduled for 7:00 AM IST today.
+    DentFlow schedule:
+      - 7 PM IST (day before): doctor gets tomorrow's appointment list
+      - 7 AM IST (day of): doctor gets today's appointment list
     """
     # Target date for scheduling summary checks
     query_date = target_date + datetime.timedelta(days=1) if is_previous_day else target_date
@@ -122,8 +125,8 @@ def generate_clinic_summaries(target_date, is_previous_day=False):
         else NotificationType.CLINIC_SAME_DAY
     )
     
-    # Calculate schedule hour
-    hour = 18 if is_previous_day else 7
+    # Previous-day summary at 7 PM IST, same-day summary at 7 AM IST
+    hour = 19 if is_previous_day else 7
     scheduled_time = timezone.make_aware(
         datetime.datetime.combine(scheduled_date, datetime.time(hour, 0, 0))
     )

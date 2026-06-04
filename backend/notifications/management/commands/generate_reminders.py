@@ -22,7 +22,8 @@ class Command(BaseCommand):
                 self.stderr.write(self.style.ERROR(f"Invalid date format: {date_str}. Must be YYYY-MM-DD."))
                 return
         else:
-            target_date = timezone.now().date()
+            # Use IST-local date since TIME_ZONE is Asia/Kolkata
+            target_date = timezone.localtime(timezone.now()).date()
 
         self.stdout.write(f"Generating reminders for target date: {target_date}...")
 
