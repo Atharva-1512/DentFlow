@@ -207,11 +207,11 @@ RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', '')
 RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', '')
 RAZORPAY_WEBHOOK_SECRET = os.getenv('RAZORPAY_WEBHOOK_SECRET', '')
 
-# Twilio credentials
-TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID', '')
-TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN', '')
-TWILIO_WHATSAPP_FROM = os.getenv('TWILIO_WHATSAPP_FROM', '')
+# WhatsApp Web Microservice (Node.js whatsapp-web.js service)
+# URL of the deployed Node.js microservice (e.g., https://dentflow-whatsapp.onrender.com)
+WHATSAPP_SERVICE_URL = os.getenv('WHATSAPP_SERVICE_URL', 'http://localhost:3001')
+# Shared secret — must match SERVICE_SECRET in whatsapp-service/.env
+WHATSAPP_SERVICE_SECRET = os.getenv('WHATSAPP_SERVICE_SECRET', 'changeme')
 
-# Cron secret for securing the trigger endpoint
+# Cron secret for securing the cron trigger endpoint
 CRON_SECRET = os.getenv('CRON_SECRET', '')
-

@@ -4,6 +4,7 @@ databases:
     plan: free
 
 services:
+  # ── Django Backend ───────────────────────────────────────────────────────────
   - type: web
     name: dentflow-backend
     runtime: python
@@ -13,7 +14,7 @@ services:
     startCommand: gunicorn dentflow.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: PYTHON_VERSION
-        value: "3.11"
+        value: "3.12.9"
       - key: SECRET_KEY
         generateValue: true
       - key: DEBUG
@@ -32,54 +33,35 @@ services:
         value: "30"
       - key: SUBSCRIPTION_GRACE_DAYS
         value: "3"
-      - key: TWILIO_ACCOUNT_SID
-        sync: false
-      - key: TWILIO_AUTH_TOKEN
-        sync: false
-      - key: TWILIO_WHATSAPP_FROM
-        value: "+14155238886"
       - key: RAZORPAY_KEY_ID
         sync: false
       - key: RAZORPAY_KEY_SECRET
         sync: false
       - key: RAZORPAY_WEBHOOK_SECRET
         sync: false
+      # WhatsApp microservice — update after deploying dentflow-whatsapp below
+      - key: WHATSAPP_SERVICE_URL
+        fromService:
+          name: dentflow-whatsapp
+          type: web
+          property: hostURL
+      - key: WHATSAPP_SERVICE_SECRET
+        sync: false
+      - key: CRON_SECRET
+        sync: false
 
-  - type: cron
-    name: dentflow-morning-reminders
-    runtime: python
-    rootDir: backend
-    schedule: "30 1 * * *"
-    buildCommand: pip install -r requirements.txt
-    startCommand: python manage.py cron_daily_reminders --slot morning
+  # ── Node.js WhatsApp Microservice ────────────────────────────────────────────
+  - type: web
+    name: dentflow-whatsapp
+    runtime: node
+    rootDir: whatsapp-service
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
     envVars:
-      - key: PYTHON_VERSION
-        value: "3.11"
-      - key: SECRET_KEY
-        fromService:
-          name: dentflow-backend
-          type: web
-          envVarKey: SECRET_KEY
-      - key: DEBUG
-        value: "False"
-      - key: DB_ENGINE
-        value: django.db.backends.postgresql
-      - key: DATABASE_URL
-        fromDatabase:
-          name: dentflow-db
-          property: connectionString
-      - key: TWILIO_ACCOUNT_SID
-        fromService:
-          name: dentflow-backend
-          type: web
-          envVarKey: TWILIO_ACCOUNT_SID
-      - key: TWILIO_AUTH_TOKEN
-        fromService:
-          name: dentflow-backend
-          type: web
-          envVarKey: TWILIO_AUTH_TOKEN
-      - key: TWILIO_WHATSAPP_FROM
-        fromService:
-          name: dentflow-backend
-          type: web
-          envVarKey: TWILIO_WHATSAPP_FROM
+      - key: NODE_VERSION
+        value: "20"
+      - key: SERVICE_SECRET
+        sync: false
+      - key: PUPPETEER_EXECUTABLE_PATH
+        value: "/usr/bin/google-chrome-stable"
