@@ -2,7 +2,7 @@ from django.core.management.base import BaseCommand
 from notifications.services import (
     generate_patient_reminders,
     generate_clinic_summaries,
-    send_pending_reminders,
+    dispatch_pending_reminders,
 )
 from django.utils import timezone
 
@@ -42,7 +42,8 @@ class Command(BaseCommand):
             self._run_evening_slot(target_date)
 
         # Dispatch all pending notifications that are due
-        sent_count = send_pending_reminders()
+        dispatched = dispatch_pending_reminders()
+        sent_count = dispatched.get('sent', 0)
         self.stdout.write(self.style.SUCCESS(
             f"  Dispatched {sent_count} WhatsApp notifications."
         ))
@@ -50,7 +51,7 @@ class Command(BaseCommand):
         self.stdout.write(self.style.SUCCESS("=== Cron complete ==="))
 
     def _run_morning_slot(self, target_date):
-        """7 AM IST: Patient reminders + Doctor same-day summary."""
+        """7 AM IST: Patient reminders + Doctor same-day & next-day summaries."""
         self.stdout.write("--- Morning Slot (7 AM IST) ---")
 
         # 1. Patient same-day reminders (7 AM IST)
@@ -63,6 +64,12 @@ class Command(BaseCommand):
         same_day_count = generate_clinic_summaries(target_date, is_previous_day=False)
         self.stdout.write(self.style.SUCCESS(
             f"  Generated {same_day_count} clinic same-day summaries."
+        ))
+
+        # 3. Clinic previous-day summaries (7 AM IST - tomorrow's list to doctor)
+        prev_day_count = generate_clinic_summaries(target_date, is_previous_day=True)
+        self.stdout.write(self.style.SUCCESS(
+            f"  Generated {prev_day_count} clinic next-day (tomorrow) summaries."
         ))
 
     def _run_evening_slot(self, target_date):

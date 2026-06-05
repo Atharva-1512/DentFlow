@@ -15,7 +15,10 @@ from accounts.models import UserRole
 from subscriptions.models import SubscriptionPlan, ClinicSubscription, SubscriptionStatus, SubscriptionEvent
 from patients.models import Patient
 from appointments.models import Appointment
-from notifications.models import NotificationLog, NotificationType, RecipientType
+from notifications.models import (
+    NotificationLog, NotificationType, RecipientType,
+    ReminderHistory, ReminderSlot, ReminderTarget, ReminderStatus, WhatsAppSession
+)
 from visits.models import Visit
 from core.middleware import TenantMiddleware
 from core.permissions import SubscriptionAccessPermission, TenantIsolationPermission
@@ -495,14 +498,23 @@ class DentFlowAPITestCase(TestCase):
         self.assertIn("T14:00:00", response.data[0]['start'])
 
 
+@override_settings(
+    TWILIO_ACCOUNT_SID='',
+    TWILIO_AUTH_TOKEN='',
+    TWILIO_WHATSAPP_FROM=''
+)
 class ReminderSchedulerTestCase(TestCase):
     """
     Test suite verifying the ReminderScheduler service, custom templates,
     placeholder context interpolation, and daily reminder management commands.
     """
     def setUp(self):
-        # Setup Clinic, User, and Active Subscription
-        self.clinic = Clinic.objects.create(name="Clinic Alpha", slug="clinic-alpha")
+        # Setup Clinic with notification number, User, and Active Subscription
+        self.clinic = Clinic.objects.create(
+            name="Clinic Alpha", 
+            slug="clinic-alpha",
+            notification_whatsapp_number="9998887777"
+        )
         self.owner = User.objects.create_user(
             username="owner_alpha", email="alpha@example.com", password="password",
             role=UserRole.CLINIC_OWNER, clinic=self.clinic
@@ -542,16 +554,17 @@ class ReminderSchedulerTestCase(TestCase):
         self.assertEqual(count, 1)
         
         # Verify log entry
-        log = NotificationLog.objects.get(
+        log = ReminderHistory.objects.get(
             clinic=self.clinic,
-            recipient_value="9998887777",
-            notification_type=NotificationType.PATIENT_SAME_DAY
+            recipient_number="9998887777",
+            slot=ReminderSlot.SAME_DAY,
+            target=ReminderTarget.PATIENT
         )
-        self.assertFalse(log.sent)
+        self.assertEqual(log.status, ReminderStatus.PENDING)
         self.assertIn("Sherlock Holmes", log.message)
         self.assertIn("10:30 AM", log.message)
         self.assertIn("Dr. Watson", log.message)
-        self.assertEqual(log.scheduled_for.time(), datetime.time(7, 0, 0))
+        self.assertEqual(log.scheduled_for.time(), datetime.time(1, 30, 0))
 
     def test_clinic_summaries_generation(self):
         """
@@ -564,53 +577,66 @@ class ReminderSchedulerTestCase(TestCase):
         count = generate_clinic_summaries(today, is_previous_day=True)
         self.assertEqual(count, 1)
         
-        log = NotificationLog.objects.get(
+        log = ReminderHistory.objects.get(
             clinic=self.clinic,
-            recipient_value="alpha@example.com",
-            notification_type=NotificationType.CLINIC_PREV_DAY
+            recipient_number="9998887777",
+            slot=ReminderSlot.DAY_BEFORE,
+            target=ReminderTarget.CLINIC
         )
         self.assertIn("Sherlock Holmes", log.message)
         self.assertIn("10:30 AM", log.message)
-        self.assertEqual(log.scheduled_for.time(), datetime.time(18, 0, 0)) # 6:00 PM
+        self.assertEqual(log.scheduled_for.time(), datetime.time(13, 30, 0))
 
-    def test_send_pending_reminders_service(self):
+    from unittest.mock import patch
+
+    @patch('notifications.providers.whatsapp_web.WhatsAppWebProvider.send_whatsapp_message')
+    @patch('notifications.providers.whatsapp_web.WhatsAppWebProvider.get_session_status')
+    def test_send_pending_reminders_service(self, mock_status, mock_send):
         """
         Verifies that send_pending_reminders dispatches due messages.
         """
-        from notifications.services import generate_patient_reminders, send_pending_reminders
+        mock_status.return_value = {'status': 'CONNECTED'}
+        mock_send.return_value = "msg-123"
+
+        from notifications.services import generate_patient_reminders, dispatch_pending_reminders
         generate_patient_reminders(self.tomorrow)
         
         # Fetch log
-        log = NotificationLog.objects.get(recipient_value="9998887777")
-        self.assertFalse(log.sent)
+        log = ReminderHistory.objects.get(recipient_number="9998887777")
+        self.assertEqual(log.status, ReminderStatus.PENDING)
         
         # Temporarily backdate log to make it due
         log.scheduled_for = timezone.now() - timezone.timedelta(minutes=5)
         log.save()
         
-        sent_count = send_pending_reminders()
-        self.assertEqual(sent_count, 1)
+        results = dispatch_pending_reminders()
+        self.assertEqual(results['sent'], 1)
         
         log.refresh_from_db()
-        self.assertTrue(log.sent)
+        self.assertEqual(log.status, ReminderStatus.SENT)
         self.assertIsNotNone(log.sent_at)
 
-    def test_management_commands(self):
+    @patch('notifications.providers.whatsapp_web.WhatsAppWebProvider.send_whatsapp_message')
+    @patch('notifications.providers.whatsapp_web.WhatsAppWebProvider.get_session_status')
+    def test_management_commands(self, mock_status, mock_send):
         """
         Tests the execute cycle of generate_reminders and send_reminders management commands.
         """
+        mock_status.return_value = {'status': 'CONNECTED'}
+        mock_send.return_value = "msg-123"
+
         from django.core.management import call_command
         
         # 1. Run generate_reminders for tomorrow
         call_command('generate_reminders', date=str(self.tomorrow))
         
         # Verify both patient same day and clinic same day logs were created
-        logs_count = NotificationLog.objects.filter(clinic=self.clinic).count()
+        logs_count = ReminderHistory.objects.filter(clinic=self.clinic).count()
         # 1 patient same-day, 1 clinic same-day summary = 2 logs
         self.assertEqual(logs_count, 2)
         
         # 2. Backdate logs to make them due
-        NotificationLog.objects.filter(clinic=self.clinic).update(
+        ReminderHistory.objects.filter(clinic=self.clinic).update(
             scheduled_for=timezone.now() - timezone.timedelta(minutes=10)
         )
         
@@ -618,8 +644,9 @@ class ReminderSchedulerTestCase(TestCase):
         call_command('send_reminders')
         
         # Verify logs were sent
-        sent_count = NotificationLog.objects.filter(clinic=self.clinic, sent=True).count()
+        sent_count = ReminderHistory.objects.filter(clinic=self.clinic, status=ReminderStatus.SENT).count()
         self.assertEqual(sent_count, 2)
+
 
 
 @override_settings(DEBUG=True)
