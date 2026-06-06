@@ -116,6 +116,7 @@ app.post('/sessions/:clinicId/start', requireSecret, async (req, res) => {
         '--disable-translate',
         '--mute-audio',
         '--safebrowsing-disable-auto-update',
+        '--js-flags="--max-old-space-size=150"',
       ],
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
     },
