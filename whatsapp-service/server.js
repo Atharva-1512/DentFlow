@@ -4,6 +4,14 @@
  * Each clinic gets an isolated session stored on disk under ./sessions/<clinicId>/
  */
 
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception thrown:', err);
+});
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -86,6 +94,7 @@ app.post('/sessions/:clinicId/start', requireSecret, async (req, res) => {
   session.qrDataUrl = null;
 
   const client = new Client({
+    authTimeoutMs: 90000,
     authStrategy: new LocalAuth({
       clientId: `clinic-${clinicId}`,
       dataPath: './sessions',
