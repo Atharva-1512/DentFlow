@@ -19,7 +19,6 @@ import {
   QrCode2 as QrCodeIcon,
   CheckCircle as CheckCircleIcon,
   Cancel as CancelIcon,
-  Refresh as RefreshIcon,
   LinkOff as LinkOffIcon,
   Schedule as ScheduleIcon,
   PhoneAndroid as PhoneIcon,
@@ -58,7 +57,7 @@ interface ReminderStats {
 
 const STATUS_CONFIG: Record<
   SessionStatus,
-  { label: string; color: 'success' | 'error' | 'warning' | 'default' | 'info'; icon: JSX.Element }
+  { label: string; color: 'success' | 'error' | 'warning' | 'default' | 'info'; icon: React.ReactElement }
 > = {
   CONNECTED: {
     label: 'Connected',
@@ -297,7 +296,7 @@ export const ClinicSettings: React.FC = () => {
                 icon={<CheckCircleIcon />}
                 sx={{ mb: 3, borderRadius: 2 }}
               >
-                <Typography fontWeight={600}>WhatsApp Connected!</Typography>
+                <Typography sx={{ fontWeight: 600 }}>WhatsApp Connected!</Typography>
                 <Typography variant="body2">
                   All reminders will be sent from this clinic's WhatsApp account.
                 </Typography>
@@ -320,7 +319,7 @@ export const ClinicSettings: React.FC = () => {
                   <PhoneIcon color="success" fontSize="small" />
                   <Box>
                     <Typography variant="caption" color="text.secondary">Connected Number</Typography>
-                    <Typography variant="body2" fontWeight={600}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       +{wa.connected_number || '—'}
                     </Typography>
                   </Box>
@@ -329,7 +328,7 @@ export const ClinicSettings: React.FC = () => {
                   <WhatsAppIcon sx={{ color: '#25D366' }} fontSize="small" />
                   <Box>
                     <Typography variant="caption" color="text.secondary">Display Name</Typography>
-                    <Typography variant="body2" fontWeight={600}>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
                       {wa.connected_name || '—'}
                     </Typography>
                   </Box>
@@ -364,7 +363,7 @@ export const ClinicSettings: React.FC = () => {
           {wa.status === 'QR_REQUIRED' && (
             <Box>
               <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
-                <Typography fontWeight={600} gutterBottom>
+                <Typography gutterBottom sx={{ fontWeight: 600 }}>
                   Scan with your clinic's WhatsApp
                 </Typography>
                 <Typography variant="body2">
@@ -439,7 +438,7 @@ export const ClinicSettings: React.FC = () => {
           {(wa.status === 'DISCONNECTED' || wa.status === 'SERVICE_UNAVAILABLE') && (
             <Box>
               <Alert severity="warning" sx={{ mb: 3, borderRadius: 2 }}>
-                <Typography fontWeight={600} gutterBottom>
+                <Typography gutterBottom sx={{ fontWeight: 600 }}>
                   WhatsApp Not Connected
                 </Typography>
                 <Typography variant="body2">
@@ -506,8 +505,7 @@ export const ClinicSettings: React.FC = () => {
                 >
                   <Typography
                     variant="h4"
-                    fontWeight={700}
-                    sx={{ color: item.color, fontFamily: 'Outfit' }}
+                    sx={{ color: item.color, fontFamily: 'Outfit', fontWeight: 700 }}
                   >
                     {item.value}
                   </Typography>
