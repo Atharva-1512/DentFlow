@@ -131,8 +131,8 @@ describe('Super Admin Portal Components', () => {
 
       expect(await screen.findByText('Subscriptions & Platform Billing')).toBeInTheDocument();
 
-      // Est. MRR (Alpha is active, Beta is expired) -> 1 * 2999 = 2,999 INR
-      const mrrElements = await screen.findAllByText('2,999 INR');
+      // Est. MRR (Alpha is active, Beta is expired) -> 1 * 199 = 199 INR
+      const mrrElements = await screen.findAllByText('199 INR');
       expect(mrrElements.length).toBeGreaterThan(0);
       expect(screen.getByText('Active Trials')).toBeInTheDocument();
       expect(screen.getByText('Expired Accounts')).toBeInTheDocument();

@@ -1,8 +1,8 @@
 export const palette = {
   primary: {
-    main: '#2563EB', // Interactive Blue
-    light: '#60A5FA',
-    dark: '#1D4ED8',
+    main: '#0D9488', // Medical Teal
+    light: '#99F6E4', // Light Teal
+    dark: '#115E59', // Dark Teal
     contrastText: '#FFFFFF',
   },
   secondary: {

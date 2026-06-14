@@ -37,7 +37,7 @@ class CurrentSubscriptionView(APIView):
             # Safe seeding for clinics without subscription record
             plan, _ = SubscriptionPlan.objects.get_or_create(
                 code='starter',
-                defaults={'name': 'Starter Plan', 'price': 2999.00, 'billing_cycle': 'monthly'}
+                defaults={'name': 'Starter Plan (Monthly)', 'price': 199.00, 'billing_cycle': 'monthly'}
             )
             
             # Start trial or payment due depending on environment setting

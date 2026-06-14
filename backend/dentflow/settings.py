@@ -149,6 +149,11 @@ AUTH_PASSWORD_VALIDATORS = [
 # Custom User Model configuration
 AUTH_USER_MODEL = 'accounts.User'
 
+AUTHENTICATION_BACKENDS = [
+    'accounts.backends.EmailOrUsernameModelBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
@@ -198,7 +203,7 @@ SIMPLE_JWT = {
 
 
 # Trial & Billing System Configuration
-TRIAL_ENABLED = os.getenv('TRIAL_ENABLED', 'True').lower() == 'true'
+TRIAL_ENABLED = os.getenv('TRIAL_ENABLED', 'False').lower() == 'true'
 TRIAL_DAYS = int(os.getenv('TRIAL_DAYS', '7'))
 SUBSCRIPTION_GRACE_DAYS = int(os.getenv('SUBSCRIPTION_GRACE_DAYS', '3'))
 

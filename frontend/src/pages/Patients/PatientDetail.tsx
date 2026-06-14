@@ -121,7 +121,7 @@ const PatientDetail: React.FC = () => {
           <Divider sx={{ my: 2 }} />
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
             <Typography variant="body1">
-              <strong>Gender:</strong> {patient.gender}
+              <strong>Gender:</strong> {patient.gender === 'M' ? 'Male' : patient.gender === 'F' ? 'Female' : 'Other'}
             </Typography>
             <Typography variant="body1">
               <strong>DOB:</strong> {patient.date_of_birth ?? 'N/A'}
@@ -136,8 +136,23 @@ const PatientDetail: React.FC = () => {
               <strong>Mobile:</strong> {patient.mobile_number}
             </Typography>
             <Typography variant="body1">
-              <strong>Consulting Doctor:</strong> {patient.consulting_doctor_name}
+              <strong>Consulting Doctor:</strong> {patient.consulting_doctor_name || 'N/A'}
             </Typography>
+            {patient.address && (
+              <Typography variant="body1" sx={{ width: '100%' }}>
+                <strong>Address:</strong> {patient.address}
+              </Typography>
+            )}
+            {patient.chief_complaint && (
+              <Typography variant="body1" sx={{ width: '100%' }}>
+                <strong>Chief Complaint:</strong> {patient.chief_complaint}
+              </Typography>
+            )}
+            {patient.notes && (
+              <Typography variant="body1" sx={{ width: '100%' }}>
+                <strong>Patient Notes:</strong> {patient.notes}
+              </Typography>
+            )}
           </Box>
         </CardContent>
       </Card>

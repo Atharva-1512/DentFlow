@@ -23,7 +23,7 @@ export const AuthGuard: React.FC = () => {
 };
 
 interface RoleGuardProps {
-  allowedRoles: ('SUPER_ADMIN' | 'CLINIC_OWNER')[];
+  allowedRoles: ('SUPER_ADMIN' | 'CLINIC_OWNER' | 'PATIENT')[];
 }
 
 export const RoleGuard: React.FC<RoleGuardProps> = ({ allowedRoles }) => {

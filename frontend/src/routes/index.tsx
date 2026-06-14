@@ -18,6 +18,8 @@ import ClinicSettings from '../pages/ClinicSettings';
 import ClinicsList from '../pages/Admin/ClinicsList';
 import AdminSubscriptions from '../pages/Admin/AdminSubscriptions';
 import AdminDashboard from '../pages/Admin/AdminDashboard';
+import QuickBill from '../pages/QuickBill';
+import Billing from '../pages/Billing';
 
 // Lazy-loaded Calendar page component
 const Calendar = React.lazy(() => import('../pages/Calendar'));
@@ -69,6 +71,8 @@ export const AppRoutes: React.FC = () => {
             <Route element={<SubscriptionGuard />}>
               <Route path="/patients" element={<PatientList />} />
               <Route path="/patients/new" element={<UnifiedVisitForm />} />
+              <Route path="/quick-bill" element={<QuickBill />} />
+              <Route path="/billing" element={<Billing />} />
               <Route path="/patients/:id" element={<PatientDetail />} />
               <Route path="/appointments/today" element={<TodayAppointments />} />
               <Route path="/appointments/upcoming" element={<UpcomingAppointments />} />

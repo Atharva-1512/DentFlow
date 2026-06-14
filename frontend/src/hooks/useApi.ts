@@ -7,6 +7,7 @@ import type {
   TimelineEvent,
   ClinicSubscription,
   PaginatedResponse,
+  Bill,
 } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -242,6 +243,95 @@ export const useSimulateWebhook = () => {
       // Refresh user profile and current subscription status from backend
       queryClient.invalidateQueries({ queryKey: ['subscription'] });
       queryClient.invalidateQueries({ queryKey: ['profile'] });
+    },
+  });
+};
+
+
+// ---------------------------------------------------------------------------
+// Billing Hooks
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch a single bill by ID.
+ * Endpoint: GET /api/visits/bills/:id/
+ */
+export const useBill = (id: string) => {
+  return useQuery({
+    queryKey: ['bill', id],
+    queryFn: async () => {
+      const res = await api.get(`/visits/bills/${id}/`);
+      return res.data as Bill;
+    },
+    enabled: !!id,
+    retry: 1,
+  });
+};
+
+/**
+ * Fetch a paginated list of bills.
+ * Endpoint: GET /api/visits/bills/
+ */
+export const useBills = (searchTerm = '', page = 0) => {
+  return useQuery({
+    queryKey: ['bills', searchTerm, page],
+    queryFn: async () => {
+      const apiPage = page + 1;
+      const searchParam = searchTerm ? `?search=${encodeURIComponent(searchTerm)}` : '';
+      const separator = searchParam ? '&' : '?';
+      const res = await api.get(`/visits/bills/${separator}page=${apiPage}${searchParam}`);
+      return res.data as PaginatedResponse<Bill>;
+    },
+    retry: 1,
+  });
+};
+
+/**
+ * Fetch past bills for a specific patient.
+ */
+export const usePatientBills = (patientId: string) => {
+  return useQuery({
+    queryKey: ['bills', 'patient', patientId],
+    queryFn: async () => {
+      const res = await api.get(`/visits/bills/?patient=${patientId}`);
+      return res.data as PaginatedResponse<Bill>;
+    },
+    enabled: !!patientId,
+    retry: 1,
+  });
+};
+
+/**
+ * Create a new bill.
+ * Endpoint: POST /api/visits/bills/
+ */
+export const useCreateBill = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: Partial<Bill>) => {
+      const res = await api.post('/visits/bills/', data);
+      return res.data as Bill;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bills'] });
+    },
+  });
+};
+
+/**
+ * Update an existing bill (e.g., to record a new payment/installment).
+ * Endpoint: PUT /api/visits/bills/:id/
+ */
+export const useUpdateBill = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Bill> }) => {
+      const res = await api.put(`/visits/bills/${id}/`, data);
+      return res.data as Bill;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['bill', data.id] });
+      queryClient.invalidateQueries({ queryKey: ['bills'] });
     },
   });
 };

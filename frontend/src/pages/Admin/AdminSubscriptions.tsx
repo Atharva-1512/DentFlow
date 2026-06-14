@@ -62,7 +62,7 @@ export const AdminSubscriptions: React.FC = () => {
     if (isTrial) {
       return { status: 'Trial', color: 'primary' as const, mrr: 0, trialDays: diffDays, label: `${diffDays} Days Left` };
     }
-    return { status: 'Active', color: 'success' as const, mrr: 2999, trialDays: 0, label: 'Paid Starter Plan' };
+    return { status: 'Active', color: 'success' as const, mrr: 199, trialDays: 0, label: 'Paid Starter Plan' };
   };
 
   // Compile totals

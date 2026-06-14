@@ -3,6 +3,8 @@ export interface Clinic {
   name: string;
   slug: string;
   is_active: boolean;
+  notification_whatsapp_number?: string;
+  address?: string;
   created_at: string;
   // Optional client-side state for Super Admin stats mapping
   subscription_status?: 'TRIAL' | 'ACTIVE' | 'PAYMENT_DUE' | 'EXPIRED' | 'CANCELLED';
@@ -110,4 +112,42 @@ export interface PaginatedResponse<T> {
   next: string | null;
   previous: string | null;
   results: T[];
+}
+
+export interface BillTreatment {
+  id?: string;
+  treatment_name: string;
+  treatment_date: string;
+  quantity: number;
+  cost: number | string;
+}
+
+export interface BillPayment {
+  id?: string;
+  payment_date: string;
+  amount_paid: number | string;
+  payment_mode: 'UPI' | 'CASH' | 'CARD' | 'NET_BANKING' | 'OTHER';
+}
+
+export interface Bill {
+  id?: string;
+  patient?: string; // Patient ID (optional now)
+  patient_name?: string;
+  patient_mobile?: string;
+  patient_age?: string | number;
+  patient_gender?: 'M' | 'F' | 'O';
+  bill_number?: string;
+  bill_date: string;
+  doctor_name: string;
+  total_cost: number | string;
+  grand_total: number | string;
+  amount_paid: number | string;
+  outstanding_balance?: number | string;
+  status: 'PAID' | 'PARTIALLY_PAID' | 'UNPAID';
+  clinic_address: string;
+  clinic_contact: string;
+  treatments: BillTreatment[];
+  payments: BillPayment[];
+  created_at?: string;
+  updated_at?: string;
 }

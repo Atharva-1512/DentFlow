@@ -5,7 +5,7 @@ from clinics.models import Clinic
 class ClinicSerializer(serializers.ModelSerializer):
     class Meta:
         model = Clinic
-        fields = ['id', 'name', 'slug', 'is_active', 'notification_whatsapp_number', 'created_at']
+        fields = ['id', 'name', 'slug', 'is_active', 'notification_whatsapp_number', 'address', 'created_at']
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -23,6 +23,7 @@ class ClinicRegistrationSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, min_length=6)
     mobile_number = serializers.CharField(max_length=20, help_text="Clinic's WhatsApp number for receiving appointment summaries.")
+    clinic_address = serializers.CharField(max_length=500, required=False, allow_blank=True, default='')
 
     def validate_username(self, value):
         if User.objects.filter(username=value).exists():
@@ -39,9 +40,10 @@ class ClinicUpdateSerializer(serializers.ModelSerializer):
     """Allows clinic owners to update their clinic profile including WhatsApp number."""
     class Meta:
         model = Clinic
-        fields = ['name', 'notification_whatsapp_number']
+        fields = ['name', 'notification_whatsapp_number', 'address']
         extra_kwargs = {
             'name': {'required': False},
             'notification_whatsapp_number': {'required': False},
+            'address': {'required': False},
         }
 

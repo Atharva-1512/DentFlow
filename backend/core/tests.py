@@ -61,7 +61,7 @@ class MiddlewareAndPermissionTestCase(TestCase):
         
         # Create a default plan
         self.plan = SubscriptionPlan.objects.create(
-            name="Starter Plan", code="starter", price=2999.00, billing_cycle="monthly"
+            name="Starter Plan (Monthly)", code="starter", price=199.00, billing_cycle="monthly"
         )
         
         # Setup Clinic A Subscription (ACTIVE)
@@ -289,7 +289,7 @@ class DentFlowAPITestCase(TestCase):
         
         # Setup Plan & Subscriptions
         self.plan = SubscriptionPlan.objects.create(
-            name="Starter Plan", code="starter", price=2999.00, billing_cycle="monthly"
+            name="Starter Plan (Monthly)", code="starter", price=199.00, billing_cycle="monthly"
         )
         self.sub_a = ClinicSubscription.objects.create(
             clinic=self.clinic_a, plan=self.plan, status=SubscriptionStatus.ACTIVE,
@@ -520,7 +520,7 @@ class ReminderSchedulerTestCase(TestCase):
             role=UserRole.CLINIC_OWNER, clinic=self.clinic
         )
         self.plan = SubscriptionPlan.objects.create(
-            name="Starter Plan", code="starter", price=2999.00, billing_cycle="monthly"
+            name="Starter Plan (Monthly)", code="starter", price=199.00, billing_cycle="monthly"
         )
         self.sub = ClinicSubscription.objects.create(
             clinic=self.clinic, plan=self.plan, status=SubscriptionStatus.ACTIVE
@@ -676,7 +676,7 @@ class DentFlowHardeningTestCase(TestCase):
         
         # Setup Plan & Subscriptions
         self.plan = SubscriptionPlan.objects.create(
-            name="Starter Plan", code="starter", price=2999.00, billing_cycle="monthly"
+            name="Starter Plan (Monthly)", code="starter", price=199.00, billing_cycle="monthly"
         )
         self.sub_a = ClinicSubscription.objects.create(
             clinic=self.clinic_a, plan=self.plan, status=SubscriptionStatus.ACTIVE,

@@ -153,6 +153,17 @@ export const EditPatientModal: React.FC<EditPatientModalProps> = ({ open, onClos
             </Grid>
             <Grid size={{ xs: 12 }}>
               <TextField
+                {...register('chief_complaint')}
+                label="Chief Complaint"
+                fullWidth
+                multiline
+                rows={2}
+                error={!!errors.chief_complaint}
+                helperText={errors.chief_complaint?.message as string}
+              />
+            </Grid>
+            <Grid size={{ xs: 12 }}>
+              <TextField
                 {...register('notes')}
                 label="Notes"
                 fullWidth

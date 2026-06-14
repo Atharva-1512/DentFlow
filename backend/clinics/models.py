@@ -15,6 +15,7 @@ class Clinic(AuditModel):
         null=True,
         help_text="Clinic's destination mobile number for summaries."
     )
+    address = models.TextField(blank=True, default='')
 
     class Meta:
         ordering = ['-created_at']

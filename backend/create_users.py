@@ -32,25 +32,35 @@ if owner_created:
     owner_user.clinic = clinic
     owner_user.save()
 
-# Seed starter subscription plan
+# Seed starter subscription plans
 plan, _ = SubscriptionPlan.objects.get_or_create(
     code='starter',
     defaults={
-        'name': 'Starter Plan',
-        'price': 2999.00,
+        'name': 'Starter Plan (Monthly)',
+        'price': 199.00,
         'billing_cycle': 'monthly',
         'is_active': True
     }
 )
 
-# Assign an active trial subscription to the test clinic
+plan_quarterly, _ = SubscriptionPlan.objects.get_or_create(
+    code='starter_quarterly',
+    defaults={
+        'name': 'Starter Plan (3-Months)',
+        'price': 299.00,
+        'billing_cycle': 'quarterly',
+        'is_active': True
+    }
+)
+
+# Assign an active subscription to the test clinic
 subscription, sub_created = ClinicSubscription.objects.get_or_create(
     clinic=clinic,
     defaults={
         'plan': plan,
-        'status': SubscriptionStatus.TRIAL,
-        'trial_start_date': timezone.now().date(),
-        'trial_end_date': timezone.now() + timezone.timedelta(days=30),
+        'status': SubscriptionStatus.ACTIVE,
+        'start_date': timezone.now().date(),
+        'next_billing_date': timezone.now().date() + timezone.timedelta(days=30),
     }
 )
 

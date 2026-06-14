@@ -1,6 +1,6 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 from rest_framework import status
 from django.db import transaction
 from django.utils import timezone
@@ -78,6 +78,7 @@ class RegisterView(APIView):
                 clinic = Clinic.objects.create(
                     name=validated_data['clinic_name'],
                     notification_whatsapp_number=validated_data['mobile_number'],
+                    address=validated_data.get('clinic_address', ''),
                     is_active=True
                 )
                 
@@ -91,30 +92,30 @@ class RegisterView(APIView):
                     clinic=clinic
                 )
                 
-                # 3. Seed starter plan if it doesn't exist, and assign trial subscription
+                # 3. Seed starter plan if it doesn't exist, and assign subscription
                 plan, _ = SubscriptionPlan.objects.get_or_create(
                     code='starter',
                     defaults={
-                        'name': 'Starter Plan',
-                        'price': 49.99,
+                        'name': 'Starter Plan (Monthly)',
+                        'price': 199.00,
                         'billing_cycle': 'monthly',
                         'is_active': True
                     }
                 )
                 
-                # Create trial subscription
+                # Create subscription with status PAYMENT_DUE (no trial period)
                 ClinicSubscription.objects.create(
                     clinic=clinic,
                     plan=plan,
-                    status=SubscriptionStatus.TRIAL,
-                    trial_start_date=timezone.now().date(),
-                    trial_end_date=timezone.now() + timezone.timedelta(days=30)
+                    status=SubscriptionStatus.PAYMENT_DUE,
+                    trial_start_date=None,
+                    trial_end_date=None
                 )
                 
                 user_serializer = UserSerializer(user)
                 return Response({
                     "user": user_serializer.data,
-                    "detail": "Clinic and Owner registered successfully with a 30-day trial plan."
+                    "detail": "Clinic and Owner registered successfully."
                 }, status=status.HTTP_201_CREATED)
                 
         except Exception as e:
@@ -122,4 +123,114 @@ class RegisterView(APIView):
                 {"detail": f"Registration failed: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class IsSuperAdmin(BasePermission):
+    """
+    Permission class that only allows SUPER_ADMIN users.
+    """
+    def has_permission(self, request, view):
+        return request.user and request.user.is_authenticated and request.user.role == UserRole.SUPER_ADMIN
+
+
+class AdminClinicListView(APIView):
+    """
+    GET, POST /api/accounts/admin/clinics/
+    restricted to SUPER_ADMIN.
+    - GET: lists all clinics.
+    - POST: creates a new clinic + clinic owner.
+    """
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def get(self, request):
+        clinics = Clinic.objects.all()
+        serializer = ClinicSerializer(clinics, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        serializer = ClinicRegistrationSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        
+        validated_data = serializer.validated_data
+        
+        try:
+            with transaction.atomic():
+                # 1. Create the Clinic
+                clinic = Clinic.objects.create(
+                    name=validated_data['clinic_name'],
+                    notification_whatsapp_number=validated_data['mobile_number'],
+                    address=validated_data.get('clinic_address', ''),
+                    is_active=True
+                )
+                
+                # 2. Create the Clinic Owner user
+                from accounts.models import User
+                user = User.objects.create_user(
+                    username=validated_data['username'],
+                    email=validated_data['email'],
+                    password=validated_data['password'],
+                    role=UserRole.CLINIC_OWNER,
+                    clinic=clinic
+                )
+                
+                # 3. Seed starter plan if it doesn't exist, and assign subscription
+                plan, _ = SubscriptionPlan.objects.get_or_create(
+                    code='starter',
+                    defaults={
+                        'name': 'Starter Plan (Monthly)',
+                        'price': 199.00,
+                        'billing_cycle': 'monthly',
+                        'is_active': True
+                    }
+                )
+                
+                # Create subscription with status PAYMENT_DUE (no trial period)
+                ClinicSubscription.objects.create(
+                    clinic=clinic,
+                    plan=plan,
+                    status=SubscriptionStatus.PAYMENT_DUE,
+                    trial_start_date=None,
+                    trial_end_date=None
+                )
+                
+                return Response(ClinicSerializer(clinic).data, status=status.HTTP_201_CREATED)
+                
+        except Exception as e:
+            return Response(
+                {"detail": f"Clinic creation failed: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class AdminClinicDetailView(APIView):
+    """
+    PATCH, DELETE /api/accounts/admin/clinics/<pk>/
+    restricted to SUPER_ADMIN.
+    - PATCH: allows toggling active state or updating info.
+    - DELETE: deletes clinic and all cascading data.
+    """
+    permission_classes = [IsAuthenticated, IsSuperAdmin]
+
+    def patch(self, request, pk):
+        try:
+            clinic = Clinic.objects.get(pk=pk)
+        except Clinic.DoesNotExist:
+            return Response({"detail": "Clinic not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        is_active = request.data.get('is_active', None)
+        if is_active is not None:
+            clinic.is_active = bool(is_active)
+            clinic.save(update_fields=['is_active'])
+            
+        serializer = ClinicSerializer(clinic)
+        return Response(serializer.data)
+
+    def delete(self, request, pk):
+        try:
+            clinic = Clinic.objects.get(pk=pk)
+        except Clinic.DoesNotExist:
+            return Response({"detail": "Clinic not found."}, status=status.HTTP_404_NOT_FOUND)
+        
+        clinic.delete()
+        return Response({"detail": "Clinic deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
 

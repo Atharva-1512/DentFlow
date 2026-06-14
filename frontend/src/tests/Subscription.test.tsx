@@ -32,9 +32,9 @@ const mockSubscriptionTrial = {
   clinic: 'clinic-1',
   plan: {
     id: 'plan-1',
-    name: 'Starter Plan',
+    name: 'Starter Plan (Monthly)',
     code: 'starter',
-    price: 2999.00,
+    price: 199.00,
     billing_cycle: 'monthly',
     is_active: true,
   },
@@ -59,8 +59,8 @@ const mockCheckoutSessionMock = {
   checkout_url: null,
   razorpay_subscription_id: 'sub_mock_12345',
   razorpay_key_id: 'rzp_test_placeholder_key',
-  amount: 2999.00,
-  plan_name: 'Starter Plan',
+  amount: 199.00,
+  plan_name: 'Starter Plan (Monthly)',
   is_mock: true,
   detail: 'Mock subscription checkout initialized.',
 };
@@ -93,17 +93,17 @@ describe('Subscription Billing Component', () => {
     renderSubscription();
 
     expect(await screen.findByText('Subscription & Billing')).toBeInTheDocument();
-    expect(screen.getAllByText('Starter Plan')[0]).toBeInTheDocument();
-    expect(screen.getByText('2,999 INR')).toBeInTheDocument();
+    expect(screen.getAllByText('Starter Plan (Monthly)')[0]).toBeInTheDocument();
+    expect(screen.getByText('199 INR')).toBeInTheDocument();
+    expect(screen.getByText('299 INR')).toBeInTheDocument();
   });
 
-  it('renders free trial stats accurately', async () => {
-    vi.mocked(api.get).mockResolvedValueOnce({ data: mockSubscriptionTrial });
+  it('renders not subscribed status accurately', async () => {
+    vi.mocked(api.get).mockResolvedValueOnce({ data: { ...mockSubscriptionTrial, status: 'EXPIRED' } });
     renderSubscription();
 
-    expect(await screen.findByText('Free Trial Active')).toBeInTheDocument();
-    expect(screen.getByText('5 Days')).toBeInTheDocument();
-    expect(screen.getByText('Subscribe Now')).toBeInTheDocument();
+    expect(await screen.findByText('Not Subscribed')).toBeInTheDocument();
+    expect(document.getElementById('subscribe-btn-starter')).toBeInTheDocument();
   });
 
   it('renders active subscription stats accurately', async () => {
@@ -117,7 +117,7 @@ describe('Subscription Billing Component', () => {
   });
 
   it('triggers mock checkout dialog and simulates payment success', async () => {
-    vi.mocked(api.get).mockResolvedValue({ data: mockSubscriptionTrial });
+    vi.mocked(api.get).mockResolvedValue({ data: { ...mockSubscriptionTrial, status: 'EXPIRED' } });
     vi.mocked(api.post).mockImplementation(async (url: string, _data?: any) => {
       if (url.includes('/create/')) {
         return { data: mockCheckoutSessionMock };
@@ -130,8 +130,11 @@ describe('Subscription Billing Component', () => {
 
     renderSubscription();
 
+    // Wait for the status to render
+    await screen.findByText('Not Subscribed');
+
     // Click subscribe to open mock payment overlay
-    const subscribeBtn = await screen.findByText('Subscribe Now');
+    const subscribeBtn = document.getElementById('subscribe-btn-starter') as HTMLElement;
     fireEvent.click(subscribeBtn);
 
     // Verify mock dialog elements show

@@ -98,7 +98,7 @@ export const Subscription: React.FC = () => {
       case 'PAYMENT_DUE':
         return { label: 'Payment Due', color: 'warning' as const, variant: 'filled' as const };
       case 'EXPIRED':
-        return { label: 'Expired', color: 'error' as const, variant: 'filled' as const };
+        return { label: 'Not Subscribed', color: 'error' as const, variant: 'filled' as const };
       case 'CANCELLED':
         return { label: 'Cancelled (Grace/Pending End)', color: 'default' as const, variant: 'outlined' as const };
       default:
@@ -122,9 +122,9 @@ export const Subscription: React.FC = () => {
   };
 
   // Initiate Subscribe/Renewal Checkout session
-  const handleSubscribe = async () => {
+  const handleSubscribe = async (planCode: string) => {
     try {
-      const data = await createSubscription.mutateAsync('starter');
+      const data = await createSubscription.mutateAsync(planCode);
       
       // If it's a mock checkout environment (DEBUG=True without API keys)
       if (data.is_mock) {
@@ -222,6 +222,115 @@ export const Subscription: React.FC = () => {
     );
   }
 
+  const renderPlanCard = (planCode: string, planName: string, priceText: string, cycleText: string, isPopular = false) => {
+    const isCurrentPlan = subscription.plan.code === planCode;
+    const isSubscribed = (subscription.status === 'ACTIVE' || subscription.status === 'CANCELLED' || subscription.status === 'PAYMENT_DUE') && isCurrentPlan;
+
+    return (
+      <Card sx={{ height: '100%', boxShadow: 2, display: 'flex', flexDirection: 'column', borderRadius: 2, border: isSubscribed ? '2px solid' : '1px solid', borderColor: isSubscribed ? 'primary.main' : 'divider' }}>
+        <CardContent sx={{ p: 3, flexGrow: 1 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
+            <Box>
+              <Typography variant="h5" sx={{ fontFamily: 'Outfit', fontWeight: 700 }}>
+                {planName}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Perfect for individual practices and small clinics
+              </Typography>
+            </Box>
+            {isPopular && <Chip label="Popular" color="primary" size="small" sx={{ fontWeight: 600 }} />}
+            {isSubscribed && <Chip label="Current Plan" color="success" size="small" sx={{ fontWeight: 600 }} />}
+          </Box>
+
+          <Box sx={{ display: 'flex', alignItems: 'baseline', my: 3 }}>
+            <Typography variant="h3" sx={{ fontWeight: 800, fontFamily: 'Outfit' }}>
+              {priceText}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
+              {cycleText}
+            </Typography>
+          </Box>
+
+          <Divider sx={{ my: 2 }} />
+
+          <List sx={{ py: 0 }}>
+            <ListItem disableGutters sx={{ py: 0.5 }}>
+              <ListItemIcon sx={{ minWidth: 32 }}><CheckIcon color="success" fontSize="small" /></ListItemIcon>
+              <ListItemText primary={<Typography variant="body2">Unlimited Patient Registrations</Typography>} />
+            </ListItem>
+            <ListItem disableGutters sx={{ py: 0.5 }}>
+              <ListItemIcon sx={{ minWidth: 32 }}><CheckIcon color="success" fontSize="small" /></ListItemIcon>
+              <ListItemText primary={<Typography variant="body2">Visual Clinic Calendar & Schedule</Typography>} />
+            </ListItem>
+            <ListItem disableGutters sx={{ py: 0.5 }}>
+              <ListItemIcon sx={{ minWidth: 32 }}><CheckIcon color="success" fontSize="small" /></ListItemIcon>
+              <ListItemText primary={<Typography variant="body2">Visits & Medical Timelines logs</Typography>} />
+            </ListItem>
+            <ListItem disableGutters sx={{ py: 0.5 }}>
+              <ListItemIcon sx={{ minWidth: 32 }}><CheckIcon color="success" fontSize="small" /></ListItemIcon>
+              <ListItemText primary={<Typography variant="body2">Secure HIPAA compliant isolation</Typography>} />
+            </ListItem>
+          </List>
+        </CardContent>
+
+        <CardActions sx={{ p: 3, pt: 0 }}>
+          {isSubscribed ? (
+            subscription.status === 'ACTIVE' ? (
+              <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Button fullWidth variant="outlined" color="primary" disabled startIcon={<CheckIcon />}>
+                  Subscribed
+                </Button>
+                <Button
+                  id="cancel-subscription-btn"
+                  fullWidth
+                  variant="text"
+                  color="error"
+                  startIcon={<CancelIcon />}
+                  onClick={() => setCancelDialogOpen(true)}
+                >
+                  Cancel Renewal
+                </Button>
+              </Box>
+            ) : subscription.status === 'CANCELLED' ? (
+              <Button
+                id="renew-subscription-btn"
+                fullWidth
+                variant="contained"
+                color="primary"
+                onClick={() => handleSubscribe(planCode)}
+                loading={createSubscription.isPending}
+              >
+                Re-Subscribe
+              </Button>
+            ) : (
+              <Button
+                id="renew-subscription-btn"
+                fullWidth
+                variant="contained"
+                color="warning"
+                onClick={() => handleSubscribe(planCode)}
+                loading={createSubscription.isPending}
+              >
+                Pay Outstanding
+              </Button>
+            )
+          ) : (
+            <Button
+              id={`subscribe-btn-${planCode}`}
+              fullWidth
+              variant="contained"
+              color="primary"
+              onClick={() => handleSubscribe(planCode)}
+              loading={createSubscription.isPending}
+            >
+              {(subscription.status === 'EXPIRED' || subscription.status === 'PAYMENT_DUE' || subscription.status === 'TRIAL') ? 'Subscribe Now' : 'Switch Plan'}
+            </Button>
+          )}
+        </CardActions>
+      </Card>
+    );
+  };
+
   const { label, color, variant } = getStatusConfig(subscription.status);
 
   return (
@@ -232,14 +341,14 @@ export const Subscription: React.FC = () => {
           Subscription & Billing
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Review subscription statuses, remaining trial days, and upgrade paths.
+          Review subscription status, billing cycles, and plans.
         </Typography>
       </Box>
 
       <Grid container spacing={4}>
         {/* Current Plan Summary Column */}
-        <Grid size={{ xs: 12, md: 7 }}>
-          <Paper sx={{ p: 3, height: '100%', boxShadow: 2, borderRadius: 2 }}>
+        <Grid size={{ xs: 12 }}>
+          <Paper sx={{ p: 3, boxShadow: 2, borderRadius: 2 }}>
             <Typography variant="h6" sx={{ fontFamily: 'Outfit', fontWeight: 600, mb: 2 }}>
               Current Status
             </Typography>
@@ -263,21 +372,6 @@ export const Subscription: React.FC = () => {
                   {subscription.plan.name}
                 </Typography>
               </Box>
-
-              {/* Trial Remaining Indicator */}
-              {subscription.status === 'TRIAL' && (
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'info.light', p: 2, borderRadius: 1.5, color: 'info.contrastText' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <TrialIcon />
-                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                      Trial Period Remaining
-                    </Typography>
-                  </Box>
-                  <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                    {subscription.trial_days_remaining} Days
-                  </Typography>
-                </Box>
-              )}
 
               {/* Next Billing/Renewal Date */}
               {subscription.next_billing_date && (
@@ -312,96 +406,12 @@ export const Subscription: React.FC = () => {
           </Paper>
         </Grid>
 
-        {/* Subscription Plan Card Column */}
-        <Grid size={{ xs: 12, md: 5 }}>
-          <Card sx={{ height: '100%', boxShadow: 2, display: 'flex', flexDirection: 'column', borderRadius: 2, border: '2px solid', borderColor: 'primary.light' }}>
-            <CardContent sx={{ p: 3, flexGrow: 1 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', mb: 2 }}>
-                <Box>
-                  <Typography variant="h5" sx={{ fontFamily: 'Outfit', fontWeight: 700 }}>
-                    Starter Plan
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Perfect for individual practices and small clinics
-                  </Typography>
-                </Box>
-                <Chip label="Popular" color="primary" size="small" sx={{ fontWeight: 600 }} />
-              </Box>
-
-              <Box sx={{ display: 'flex', alignItems: 'baseline', my: 3 }}>
-                <Typography variant="h3" sx={{ fontWeight: 800, fontFamily: 'Outfit' }}>
-                  2,999 INR
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ ml: 1 }}>
-                  / month
-                </Typography>
-              </Box>
-
-              <Divider sx={{ my: 2 }} />
-
-              <List>
-                <ListItem disableGutters>
-                  <ListItemIcon sx={{ minWidth: 32 }}><CheckIcon color="success" fontSize="small" /></ListItemIcon>
-                  <ListItemText primary={<Typography variant="body2">Unlimited Patient Registrations</Typography>} />
-                </ListItem>
-                <ListItem disableGutters>
-                  <ListItemIcon sx={{ minWidth: 32 }}><CheckIcon color="success" fontSize="small" /></ListItemIcon>
-                  <ListItemText primary={<Typography variant="body2">Visual Clinic Calendar & Schedule</Typography>} />
-                </ListItem>
-                <ListItem disableGutters>
-                  <ListItemIcon sx={{ minWidth: 32 }}><CheckIcon color="success" fontSize="small" /></ListItemIcon>
-                  <ListItemText primary={<Typography variant="body2">Visits & Medical Timelines logs</Typography>} />
-                </ListItem>
-                <ListItem disableGutters>
-                  <ListItemIcon sx={{ minWidth: 32 }}><CheckIcon color="success" fontSize="small" /></ListItemIcon>
-                  <ListItemText primary={<Typography variant="body2">Secure HIPAA compliant isolation</Typography>} />
-                </ListItem>
-              </List>
-            </CardContent>
-
-            <CardActions sx={{ p: 3, pt: 0 }}>
-              {/* Conditional Action Buttons based on status */}
-              {subscription.status === 'ACTIVE' ? (
-                <Box sx={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <Button fullWidth variant="outlined" color="primary" disabled startIcon={<CheckIcon />}>
-                    Subscribed
-                  </Button>
-                  <Button
-                    id="cancel-subscription-btn"
-                    fullWidth
-                    variant="text"
-                    color="error"
-                    startIcon={<CancelIcon />}
-                    onClick={() => setCancelDialogOpen(true)}
-                  >
-                    Cancel Renewal
-                  </Button>
-                </Box>
-              ) : subscription.status === 'CANCELLED' ? (
-                <Button
-                  id="renew-subscription-btn"
-                  fullWidth
-                  variant="contained"
-                  color="primary"
-                  onClick={handleSubscribe}
-                  loading={createSubscription.isPending}
-                >
-                  Re-Subscribe
-                </Button>
-              ) : (
-                <Button
-                  id="subscribe-btn"
-                  fullWidth
-                  variant="contained"
-                  color="primary"
-                  onClick={handleSubscribe}
-                  loading={createSubscription.isPending}
-                >
-                  {subscription.status === 'TRIAL' ? 'Subscribe Now' : 'Renew Subscription'}
-                </Button>
-              )}
-            </CardActions>
-          </Card>
+        {/* Subscription Plan Card Columns */}
+        <Grid size={{ xs: 12, md: 6 }}>
+          {renderPlanCard('starter', 'Starter Plan (Monthly)', '199 INR', '/ month', false)}
+        </Grid>
+        <Grid size={{ xs: 12, md: 6 }}>
+          {renderPlanCard('starter_quarterly', 'Starter Plan (3-Months)', '299 INR', '/ 3 months', true)}
         </Grid>
       </Grid>
 

@@ -130,8 +130,8 @@ export const MainLayout: React.FC = () => {
         position="fixed"
         sx={{
           zIndex: theme.zIndex.drawer + 1,
-          bgcolor: 'secondary.main',
-          color: 'secondary.contrastText',
+          bgcolor: 'primary.main',
+          color: 'primary.contrastText',
           boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
         }}
       >
@@ -185,7 +185,7 @@ export const MainLayout: React.FC = () => {
             >
               DentFlow
             </Typography>
-            {user?.clinic && (
+            {(user?.clinic || impersonatedClinic) && (
               <Typography
                 variant="caption"
                 sx={{
@@ -198,7 +198,7 @@ export const MainLayout: React.FC = () => {
                   display: { xs: 'none', sm: 'inline-block' },
                 }}
               >
-                {user.clinic.name}
+                {user?.clinic?.name || impersonatedClinic?.name}
               </Typography>
             )}
           </Box>

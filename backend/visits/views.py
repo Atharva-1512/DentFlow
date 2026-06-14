@@ -10,10 +10,11 @@ from patients.models import Patient
 from patients.serializers import PatientSerializer
 from appointments.models import Appointment
 from appointments.serializers import AppointmentSerializer
-from .models import Visit
+from .models import Visit, Bill
 from .serializers import (
     VisitSerializer, UnifiedPatientInputSerializer,
-    UnifiedVisitInputSerializer, UnifiedAppointmentInputSerializer
+    UnifiedVisitInputSerializer, UnifiedAppointmentInputSerializer,
+    BillSerializer
 )
 
 class VisitViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
@@ -120,3 +121,31 @@ class UnifiedVisitAPIView(APIView):
             "visit": VisitSerializer(visit).data,
             "next_appointment": AppointmentSerializer(appointment).data if appointment else None
         }, status=status.HTTP_201_CREATED)
+
+
+class BillViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+    """
+    Standard Bill ViewSet.
+    Tenant isolation is managed automatically by TenantViewSetMixin.
+    """
+    queryset = Bill.objects.all()
+    serializer_class = BillSerializer
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        
+        # Filter by specific patient UUID
+        patient_id = self.request.query_params.get('patient', None)
+        if patient_id:
+            queryset = queryset.filter(patient_id=patient_id)
+            
+        # Search query matching
+        search_query = self.request.query_params.get('search', None)
+        if search_query:
+            from django.db.models import Q
+            queryset = queryset.filter(
+                Q(patient_name__icontains=search_query) |
+                Q(patient_mobile__icontains=search_query) |
+                Q(bill_number__icontains=search_query)
+            )
+        return queryset

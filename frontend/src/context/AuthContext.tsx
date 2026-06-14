@@ -8,14 +8,19 @@ export interface Clinic {
   name: string;
   slug: string;
   is_active: boolean;
+  notification_whatsapp_number?: string;
+  address?: string;
 }
 
 export interface User {
   id: string;
   username: string;
   email: string;
-  role: 'SUPER_ADMIN' | 'CLINIC_OWNER';
+  role: 'SUPER_ADMIN' | 'CLINIC_OWNER' | 'PATIENT';
   clinic: Clinic | null;
+  patient_id?: string | null;
+  first_name?: string;
+  last_name?: string;
 }
 
 export interface Subscription {

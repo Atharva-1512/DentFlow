@@ -22,20 +22,23 @@ import {
   Phone as PhoneIcon,
   Business as BusinessIcon,
 } from '@mui/icons-material';
-import { api } from '../services/api';
+import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 const registerSchema = zod.object({
   clinic_name: zod.string().min(1, 'Clinic name is required'),
+  clinic_address: zod.string().min(1, 'Clinic address is required'),
   username: zod.string().min(1, 'Username is required'),
   email: zod.string().email('Enter a valid email'),
   password: zod.string().min(6, 'Password must be at least 6 characters'),
-  mobile_number: zod.string().min(10, 'Enter a valid WhatsApp number'),
+  mobile_number: zod.string().min(10, 'Enter a valid contact number'),
 });
 
 type RegisterFormData = zod.infer<typeof registerSchema>;
 
 export const Register: React.FC = () => {
   const navigate = useNavigate();
+  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -51,8 +54,8 @@ export const Register: React.FC = () => {
     setErrorMessage(null);
     try {
       await api.post('/accounts/register/', data);
-      // After registration, log the user in
-      await api.post('/token/', { username: data.username, password: data.password });
+      // Log in using AuthContext to update session state
+      await login(data.username, data.password);
       navigate('/dashboard');
     } catch (error: any) {
       const backendError =
@@ -71,12 +74,12 @@ export const Register: React.FC = () => {
         variant="h5"
         align="center"
         gutterBottom
-        sx={{ fontWeight: 700, mb: 1, color: 'text.primary' }}
+        sx={{ fontWeight: 700, mb: 1, color: 'text.primary', fontFamily: 'Outfit' }}
       >
         Register Your Clinic
       </Typography>
       <Typography variant="body2" align="center" color="text.secondary" sx={{ mb: 3 }}>
-        Create your DentFlow account and start your 30-day free trial.
+        Create your DentFlow account and start managing your clinic.
       </Typography>
 
       {errorMessage && (
@@ -105,7 +108,27 @@ export const Register: React.FC = () => {
           }}
           sx={{ mb: 1.5 }}
         />
-
+        <TextField
+          {...register('clinic_address')}
+          label="Clinic Address"
+          fullWidth
+          margin="normal"
+          error={!!errors.clinic_address}
+          helperText={errors.clinic_address?.message}
+          disabled={isSubmitting}
+          multiline
+          rows={2}
+          slotProps={{
+            input: {
+              startAdornment: (
+                <InputAdornment position="start">
+                  <BusinessIcon color="action" />
+                </InputAdornment>
+              ),
+            },
+          }}
+          sx={{ mb: 1.5 }}
+        />
         <TextField
           {...register('username')}
           label="Username"
@@ -149,12 +172,12 @@ export const Register: React.FC = () => {
 
         <TextField
           {...register('mobile_number')}
-          label="WhatsApp Number"
-          placeholder="+91XXXXXXXXXX"
+          label="Contact Mobile Number"
+          placeholder="91XXXXXXXXXX"
           fullWidth
           margin="normal"
           error={!!errors.mobile_number}
-          helperText={errors.mobile_number?.message || 'This number will receive appointment summaries'}
+          helperText={errors.mobile_number?.message || 'Clinic contact number'}
           disabled={isSubmitting}
           slotProps={{
             input: {
@@ -209,18 +232,18 @@ export const Register: React.FC = () => {
           disabled={isSubmitting}
           sx={{ py: 1.5, fontWeight: 600, textTransform: 'none', fontSize: '1rem' }}
         >
-          {isSubmitting ? <CircularProgress size={24} color="inherit" /> : 'Create Account'}
-        </Button>
-
-        <Button
-          variant="text"
-          fullWidth
-          onClick={() => navigate('/login')}
-          sx={{ mt: 2, textTransform: 'none' }}
-        >
-          Already have an account? Sign In
+          {isSubmitting ? <CircularProgress size={24} color="inherit" /> : 'Create Clinic Account'}
         </Button>
       </form>
+
+      <Button
+        variant="text"
+        fullWidth
+        onClick={() => navigate('/login')}
+        sx={{ mt: 2, textTransform: 'none' }}
+      >
+        Already have an account? Sign In
+      </Button>
     </Box>
   );
 };
