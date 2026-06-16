@@ -85,6 +85,7 @@ export const QuickBill: React.FC = () => {
 
   // Saved bill reference
   const [savedBillNumber, setSavedBillNumber] = useState<string | null>(null);
+  const [savedPatientId, setSavedPatientId] = useState<string | null>(null);
   const [isSaved, setIsSaved] = useState(false);
 
   // Dialog state for patient history lookup
@@ -213,6 +214,7 @@ export const QuickBill: React.FC = () => {
       onSuccess: (data) => {
         toastRef.show('Invoice generated and saved successfully.', 'success');
         setSavedBillNumber(data.bill_number || 'INV-SAVED');
+        setSavedPatientId(data.patient_id || null);
         setIsSaved(true);
       },
       onError: (err: any) => {
@@ -277,6 +279,7 @@ export const QuickBill: React.FC = () => {
     doc.text(`Name: ${data.patient_name || '—'}`, 14, 70);
     doc.text(`Age / Gender: ${data.patient_age || '—'} Yrs (${patientGenderText})`, 14, 75);
     doc.text(`Contact: ${data.patient_mobile || '—'}`, 14, 80);
+    doc.text(`Patient ID: ${data.patient_id || 'New Patient'}`, 14, 85);
 
     doc.text(`Doctor Name: ${data.doctor_name || '—'}`, 120, 70);
     doc.text(`Consultation Date: ${data.bill_date ? new Date(data.bill_date).toLocaleDateString() : '—'}`, 120, 75);
@@ -293,7 +296,7 @@ export const QuickBill: React.FC = () => {
     ]);
 
     autoTable(doc, {
-      startY: 90,
+      startY: 95,
       head: tableHeaders,
       body: tableBody,
       theme: 'striped',
@@ -400,6 +403,7 @@ export const QuickBill: React.FC = () => {
       bill_date: billDate,
       doctor_name: `Dr. ${doctorName.trim()}`,
       bill_number: savedBillNumber || undefined,
+      patient_id: savedPatientId || matchedPatient?.patient_id || undefined,
       clinic_address: clinicAddress,
       clinic_contact: clinicContact,
       treatments: treatments,
@@ -411,7 +415,7 @@ export const QuickBill: React.FC = () => {
   return (
     <Box sx={{ pb: 8 }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, mb: 4 }}>
         <Button
           variant="outlined"
           onClick={() => navigate('/dashboard')}
@@ -421,7 +425,7 @@ export const QuickBill: React.FC = () => {
           Dashboard
         </Button>
         <Box>
-          <Typography variant="h4" sx={{ fontFamily: 'Outfit', fontWeight: 700 }}>
+          <Typography variant="h4" sx={{ fontFamily: 'Outfit', fontWeight: 700, fontSize: { xs: '1.8rem', sm: '2rem', md: '2.125rem' } }}>
             Quick Bill
           </Typography>
           <Typography variant="body2" color="text.secondary">
@@ -449,6 +453,7 @@ export const QuickBill: React.FC = () => {
                     setPatientName(e.target.value);
                     setIsSaved(false);
                     setSavedBillNumber(null);
+                    setSavedPatientId(null);
                   }}
                   required
                   slotProps={{
@@ -475,7 +480,12 @@ export const QuickBill: React.FC = () => {
                   fullWidth
                   label="Patient Mobile Number"
                   value={patientMobile}
-                  onChange={(e) => setPatientMobile(e.target.value)}
+                  onChange={(e) => {
+                    setPatientMobile(e.target.value);
+                    setIsSaved(false);
+                    setSavedBillNumber(null);
+                    setSavedPatientId(null);
+                  }}
                 />
               </Grid>
 
@@ -699,6 +709,7 @@ export const QuickBill: React.FC = () => {
                         )}
                       </Typography>
                       <Typography variant="caption" sx={{ display: 'block' }}>Age: <b>{patientAge ? `${patientAge} Yrs` : '—'}</b></Typography>
+                      <Typography variant="caption" sx={{ display: 'block' }}>Patient ID: <b>{savedPatientId || matchedPatient?.patient_id || 'New Patient'}</b></Typography>
                     </Grid>
                     <Grid size={{ xs: 6 }}>
                       <Typography variant="caption" sx={{ display: 'block' }}>Gender: <b>{patientGender === 'M' ? 'Male' : patientGender === 'F' ? 'Female' : 'Other'}</b></Typography>

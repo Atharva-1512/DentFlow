@@ -302,7 +302,7 @@ export const UnifiedVisitForm: React.FC = () => {
   return (
     <Box sx={{ maxWidth: 900, mx: 'auto', pb: 6 }}>
       {/* Page Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, gap: 2, mb: 4 }}>
         <Button
           variant="outlined"
           onClick={() => navigate('/patients')}
@@ -311,7 +311,7 @@ export const UnifiedVisitForm: React.FC = () => {
         >
           Back
         </Button>
-        <Typography variant="h4" sx={{ fontFamily: 'Outfit', fontWeight: 700 }}>
+        <Typography variant="h4" sx={{ fontFamily: 'Outfit', fontWeight: 700, fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}>
           New Visit & Consult Registration
         </Typography>
       </Box>
@@ -354,6 +354,8 @@ export const UnifiedVisitForm: React.FC = () => {
                   id="patient-autocomplete-search"
                   options={searchResults?.results || []}
                   getOptionLabel={(option: Patient) => `${option.full_name} (${option.mobile_number})`}
+                  filterOptions={(x) => x}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
                   loading={loadingPatients}
                   onInputChange={(_event, value) => setSearchQuery(value)}
                   onChange={handlePatientSelect}

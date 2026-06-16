@@ -203,7 +203,7 @@ SIMPLE_JWT = {
 
 
 # Trial & Billing System Configuration
-TRIAL_ENABLED = os.getenv('TRIAL_ENABLED', 'False').lower() == 'true'
+TRIAL_ENABLED = os.getenv('TRIAL_ENABLED', 'True').lower() == 'true'
 TRIAL_DAYS = int(os.getenv('TRIAL_DAYS', '7'))
 SUBSCRIPTION_GRACE_DAYS = int(os.getenv('SUBSCRIPTION_GRACE_DAYS', '3'))
 

@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 from rest_framework import status
 from django.db import transaction
 from django.utils import timezone
+from django.conf import settings
 from .serializers import UserSerializer, ClinicSerializer, ClinicRegistrationSerializer, ClinicUpdateSerializer
 from clinics.models import Clinic
 from accounts.models import UserRole
@@ -103,13 +104,22 @@ class RegisterView(APIView):
                     }
                 )
                 
-                # Create subscription with status PAYMENT_DUE (no trial period)
+                # Create subscription with status according to settings.TRIAL_ENABLED
+                if getattr(settings, 'TRIAL_ENABLED', True):
+                    status_val = SubscriptionStatus.TRIAL
+                    trial_start = timezone.now().date()
+                    trial_end = timezone.now() + timezone.timedelta(days=getattr(settings, 'TRIAL_DAYS', 30))
+                else:
+                    status_val = SubscriptionStatus.PAYMENT_DUE
+                    trial_start = None
+                    trial_end = None
+
                 ClinicSubscription.objects.create(
                     clinic=clinic,
                     plan=plan,
-                    status=SubscriptionStatus.PAYMENT_DUE,
-                    trial_start_date=None,
-                    trial_end_date=None
+                    status=status_val,
+                    trial_start_date=trial_start,
+                    trial_end_date=trial_end
                 )
                 
                 user_serializer = UserSerializer(user)
@@ -185,13 +195,22 @@ class AdminClinicListView(APIView):
                     }
                 )
                 
-                # Create subscription with status PAYMENT_DUE (no trial period)
+                # Create subscription with status according to settings.TRIAL_ENABLED
+                if getattr(settings, 'TRIAL_ENABLED', True):
+                    status_val = SubscriptionStatus.TRIAL
+                    trial_start = timezone.now().date()
+                    trial_end = timezone.now() + timezone.timedelta(days=getattr(settings, 'TRIAL_DAYS', 30))
+                else:
+                    status_val = SubscriptionStatus.PAYMENT_DUE
+                    trial_start = None
+                    trial_end = None
+
                 ClinicSubscription.objects.create(
                     clinic=clinic,
                     plan=plan,
-                    status=SubscriptionStatus.PAYMENT_DUE,
-                    trial_start_date=None,
-                    trial_end_date=None
+                    status=status_val,
+                    trial_start_date=trial_start,
+                    trial_end_date=trial_end
                 )
                 
                 return Response(ClinicSerializer(clinic).data, status=status.HTTP_201_CREATED)

@@ -259,7 +259,7 @@ class MiddlewareAndPermissionTestCase(TestCase):
         self.assertFalse(perm.has_permission(request, None))
 
 
-@override_settings(DEBUG=True)
+@override_settings(DEBUG=True, RAZORPAY_KEY_ID='rzp_test_placeholder_key')
 class DentFlowAPITestCase(TestCase):
     """
     Integration test suite verifying API routing, authentication permissions,
@@ -649,7 +649,7 @@ class ReminderSchedulerTestCase(TestCase):
 
 
 
-@override_settings(DEBUG=True)
+@override_settings(DEBUG=True, RAZORPAY_KEY_ID='rzp_test_placeholder_key')
 class DentFlowHardeningTestCase(TestCase):
     """
     Test suite verifying security hardening, calendar tenant isolation,

@@ -33,6 +33,16 @@ class CurrentSubscriptionView(APIView):
             
         try:
             subscription = ClinicSubscription.objects.get(clinic=clinic)
+            # Auto-upgrade existing PAYMENT_DUE subscriptions that never had a trial to TRIAL status
+            # if trial is currently enabled. This fixes accounts registered when trials were off.
+            trial_enabled = getattr(settings, 'TRIAL_ENABLED', True)
+            if trial_enabled and subscription.status == SubscriptionStatus.PAYMENT_DUE and subscription.trial_start_date is None:
+                trial_days = getattr(settings, 'TRIAL_DAYS', 7)
+                trial_end = timezone.now() + timezone.timedelta(days=trial_days)
+                subscription.status = SubscriptionStatus.TRIAL
+                subscription.trial_start_date = timezone.now().date()
+                subscription.trial_end_date = trial_end
+                subscription.save(update_fields=['status', 'trial_start_date', 'trial_end_date'])
         except ClinicSubscription.DoesNotExist:
             # Safe seeding for clinics without subscription record
             plan, _ = SubscriptionPlan.objects.get_or_create(

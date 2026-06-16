@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Box, Card, CardContent, Typography, CircularProgress, Alert, Divider, Button } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import { Timeline, TimelineItem, TimelineSeparator, TimelineConnector, TimelineContent, TimelineDot, TimelineOppositeContent } from '@mui/lab';
@@ -19,6 +19,7 @@ import { EditPatientModal } from '../../components/Patients/EditPatientModal';
  */
 const PatientDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [isEditOpen, setIsEditOpen] = useState(false);
 
   // Fetch patient data
@@ -106,17 +107,30 @@ const PatientDetail: React.FC = () => {
       {/* Patient Header Card */}
       <Card sx={{ mb: 4, background: 'rgba(var(--mui-palette-background-paperChannel) / 0.9)' }}>
         <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h4" component="div">
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
+            <Typography variant="h4" component="div" sx={{ fontFamily: 'Outfit', fontWeight: 700, fontSize: { xs: '1.8rem', sm: '2.125rem' } }}>
               {patient.full_name}
             </Typography>
-            <Button
-              variant="outlined"
-              startIcon={<EditIcon />}
-              onClick={() => setIsEditOpen(true)}
-            >
-              Edit Patient
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => navigate(`/patients/new?patient_id=${patient.id}`)}
+                sx={{ textTransform: 'none', fontWeight: 600 }}
+                id="patient-schedule-followup-btn"
+              >
+                Schedule Follow-up / New Visit
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<EditIcon />}
+                onClick={() => setIsEditOpen(true)}
+                sx={{ textTransform: 'none', fontWeight: 600 }}
+                id="patient-edit-profile-btn"
+              >
+                Edit Patient
+              </Button>
+            </Box>
           </Box>
           <Divider sx={{ my: 2 }} />
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>

@@ -231,12 +231,12 @@ const ClinicOwnerDashboard: React.FC = () => {
         // Grid Menu
         <Grid container spacing={2}>
           {gridMenuItems.map((item) => (
-            <Grid key={item.text} size={{ xs: 4, sm: 3, md: 2.18 }}>
+            <Grid key={item.text} size={{ xs: 6, sm: 4, md: 3, lg: 2.18 }}>
               <Card
                 sx={{
                   textAlign: 'center',
                   cursor: 'pointer',
-                  py: 2,
+                  py: 1.5,
                   transition: 'all 0.2s',
                   border: '1px solid #E2E8F0',
                   boxShadow: 'none',
@@ -251,9 +251,9 @@ const ClinicOwnerDashboard: React.FC = () => {
                   else if (item.action) item.action();
                 }}
               >
-                <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, p: '16px !important' }}>
+                <CardContent sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, p: { xs: '10px !important', sm: '16px !important' } }}>
                   {item.icon}
-                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: '0.85rem' }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, color: 'text.primary', fontSize: { xs: '0.75rem', sm: '0.85rem' } }}>
                     {item.text}
                   </Typography>
                 </CardContent>

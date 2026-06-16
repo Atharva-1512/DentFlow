@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import api, { impersonationContext } from '../services/api';
 import { getAccessToken, setTokens, clearTokens } from '../utils/token';
 import { toastRef } from './ToastContext';
@@ -52,6 +53,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [impersonatedClinic, setImpersonatedClinicState] = useState<Clinic | null>(null);
@@ -91,6 +93,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await api.post('/token/', { username, password });
       setTokens(response.data.access, response.data.refresh);
       
+      // Clear React Query cache on new login session
+      queryClient.clear();
+      
       // Load user profile context
       const userRes = await api.get('/accounts/me/');
       const userData = userRes.data as User;
@@ -123,6 +128,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     setSubscription(null);
     setImpersonatedClinic(null);
+    
+    // Clear React Query cache on logout session closure
+    queryClient.clear();
     toastRef.show('Logged out successfully.', 'info');
   };
 

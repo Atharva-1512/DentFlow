@@ -47,6 +47,7 @@ export interface ClinicSubscription {
 
 export interface Patient {
   id: string;
+  patient_id?: string;
   full_name: string;
   /**
    * Backend serializer exposes `age` as a computed integer for reads.
@@ -132,6 +133,7 @@ export interface BillPayment {
 export interface Bill {
   id?: string;
   patient?: string; // Patient ID (optional now)
+  patient_id?: string;
   patient_name?: string;
   patient_mobile?: string;
   patient_age?: string | number;

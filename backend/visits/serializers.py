@@ -71,6 +71,7 @@ class BillPaymentSerializer(serializers.ModelSerializer):
 class BillSerializer(serializers.ModelSerializer):
     from patients.models import Patient
     patient = serializers.PrimaryKeyRelatedField(queryset=Patient.objects.all(), required=False, allow_null=True)
+    patient_id = serializers.CharField(source='patient.patient_id', read_only=True, allow_null=True)
     treatments = BillTreatmentSerializer(many=True, required=False)
     payments = BillPaymentSerializer(many=True, required=False)
     patient_name = serializers.CharField(max_length=255)
@@ -81,7 +82,7 @@ class BillSerializer(serializers.ModelSerializer):
     class Meta:
         model = Bill
         fields = [
-            'id', 'patient', 'patient_name', 'patient_mobile', 'patient_age', 'patient_gender',
+            'id', 'patient', 'patient_id', 'patient_name', 'patient_mobile', 'patient_age', 'patient_gender',
             'bill_number', 'bill_date', 'doctor_name',
             'total_cost', 'grand_total', 'amount_paid', 'outstanding_balance',
             'status', 'clinic_address', 'clinic_contact',
