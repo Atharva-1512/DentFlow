@@ -114,6 +114,7 @@ export const PatientList: React.FC = () => {
             <Table>
               <TableHead>
                 <TableRow>
+                  <TableCell sx={{ fontWeight: 600 }}>Patient ID</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Age</TableCell>
                   <TableCell sx={{ fontWeight: 600 }}>Gender</TableCell>
@@ -125,6 +126,7 @@ export const PatientList: React.FC = () => {
               <TableBody>
                 {[...Array(5)].map((_, index) => (
                   <TableRow key={index}>
+                    <TableCell><Skeleton width="40%" /></TableCell>
                     <TableCell><Skeleton width="60%" /></TableCell>
                     <TableCell><Skeleton width="40%" /></TableCell>
                     <TableCell><Skeleton width="30%" /></TableCell>
@@ -152,6 +154,7 @@ export const PatientList: React.FC = () => {
               <Table stickyHeader size="medium">
                 <TableHead>
                   <TableRow>
+                    <TableCell sx={{ fontWeight: 600 }}>Patient ID</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Age</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Gender</TableCell>
@@ -163,6 +166,9 @@ export const PatientList: React.FC = () => {
                 <TableBody>
                   {data.results.map((patient: Patient) => (
                     <TableRow key={patient.id} hover>
+                      <TableCell sx={{ fontWeight: 600, color: 'primary.main' }}>
+                        {patient.patient_id || 'N/A'}
+                      </TableCell>
                       <TableCell sx={{ fontWeight: 500 }}>{patient.full_name}</TableCell>
                       <TableCell>
                         {patient.date_of_birth ? calculateAge(patient.date_of_birth) : patient.age}

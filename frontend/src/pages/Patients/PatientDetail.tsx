@@ -109,7 +109,7 @@ const PatientDetail: React.FC = () => {
         <CardContent>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 2 }}>
             <Typography variant="h4" component="div" sx={{ fontFamily: 'Outfit', fontWeight: 700, fontSize: { xs: '1.8rem', sm: '2.125rem' } }}>
-              {patient.full_name}
+              {patient.full_name} {patient.patient_id && <Typography component="span" variant="h5" sx={{ color: 'text.secondary', fontWeight: 500, ml: 1 }}>({patient.patient_id})</Typography>}
             </Typography>
             <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
               <Button
@@ -134,6 +134,11 @@ const PatientDetail: React.FC = () => {
           </Box>
           <Divider sx={{ my: 2 }} />
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+            {patient.patient_id && (
+              <Typography variant="body1">
+                <strong>Patient ID:</strong> {patient.patient_id}
+              </Typography>
+            )}
             <Typography variant="body1">
               <strong>Gender:</strong> {patient.gender === 'M' ? 'Male' : patient.gender === 'F' ? 'Female' : 'Other'}
             </Typography>
