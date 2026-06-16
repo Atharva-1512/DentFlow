@@ -82,6 +82,19 @@ export const Calendar: React.FC = () => {
           font-size: 1.5rem;
           color: #0F172A;
         }
+        @media (max-width: 600px) {
+          .fc .fc-toolbar {
+            flex-direction: column !important;
+            gap: 10px;
+          }
+          .fc .fc-toolbar-title {
+            font-size: 1.15rem !important;
+            text-align: center;
+          }
+          .fc .fc-button-group {
+            margin-bottom: 4px;
+          }
+        }
         .fc .fc-button-primary {
           background-color: #0F172A;
           border-color: #0F172A;
