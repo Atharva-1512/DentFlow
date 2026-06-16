@@ -132,11 +132,20 @@ const ClinicOwnerDashboard: React.FC = () => {
     },
   });
 
+  const { data: collectionsData } = useQuery({
+    queryKey: ['collections'],
+    queryFn: async () => {
+      const res = await api.get('/visits/bills/collections/');
+      return res.data;
+    },
+  });
+
   const isLoading = loadingPatients || loadingToday;
 
   const totalPatients = patientsData?.count ?? 0;
   const todayCount = todayApptsData?.count ?? 0;
   const totalVisits = visitsData?.count ?? 0;
+  const totalCollections = collectionsData?.total_collections ?? 0;
   const todayAppointmentsList = todayApptsData?.results ?? [];
 
   // FAB quick actions configuration
@@ -197,7 +206,7 @@ const ClinicOwnerDashboard: React.FC = () => {
           <Card sx={{ bgcolor: '#D69E2E', color: '#FFFFFF', borderRadius: 3, boxShadow: 2, py: 1 }}>
             <CardContent sx={{ textAlign: 'center', '&:last-child': { pb: 1 } }}>
               <Typography variant="h4" sx={{ fontWeight: 700, fontFamily: 'Outfit' }}>
-                Rs. 0.00
+                Rs. {totalCollections.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </Typography>
               <Typography variant="body2" sx={{ opacity: 0.9, fontWeight: 500 }}>
                 Collections

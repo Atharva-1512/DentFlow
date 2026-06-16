@@ -1,6 +1,7 @@
 from django.db import transaction
 from django.utils import timezone
 from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
 
@@ -149,3 +150,9 @@ class BillViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
                 Q(bill_number__icontains=search_query)
             )
         return queryset
+
+    @action(detail=False, methods=['get'])
+    def collections(self, request):
+        from django.db.models import Sum
+        total_collected = self.get_queryset().aggregate(total=Sum('amount_paid'))['total'] or 0.00
+        return Response({"total_collections": float(total_collected)})
