@@ -2,6 +2,7 @@ import os
 import sys
 import uuid
 import re
+import json
 import datetime
 from django.utils import timezone
 from django.conf import settings
@@ -11,10 +12,35 @@ from pymongo import MongoClient
 # Setup MongoDB Client
 MONGO_URI = getattr(settings, 'MONGO_URI', os.getenv('MONGO_URI', 'mongodb://localhost:27017/'))
 MONGO_DB_NAME = getattr(settings, 'MONGO_DB_NAME', os.getenv('MONGO_DB_NAME', 'dentflow'))
-
-client = MongoClient(MONGO_URI, uuidRepresentation='standard')
-# Automatically switch database context when running tests
 db_name = "dentflow_test" if "test" in sys.argv else MONGO_DB_NAME
+
+is_mock = False
+try:
+    client = MongoClient(MONGO_URI, uuidRepresentation='standard', serverSelectionTimeoutMS=1500)
+    client.admin.command('ping')
+except Exception:
+    try:
+        import mongomock
+        client = mongomock.MongoClient()
+        is_mock = True
+        print("[DentFlow] Local MongoDB not reachable. Active storage: mongomock JSON-persisted engine.")
+    except ImportError:
+        client = MongoClient(MONGO_URI, uuidRepresentation='standard')
+
+LOCAL_DB_FILE = os.path.join(settings.BASE_DIR, 'dentflow_local_db.json')
+
+def save_mock_db():
+    if not is_mock or "test" in sys.argv:
+        return
+    try:
+        data = {
+            "users": list(client[db_name].users.find({})),
+            "subscription_events": list(client[db_name].subscription_events.find({})),
+        }
+        with open(LOCAL_DB_FILE, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, default=str)
+    except Exception:
+        pass
 
 def normalize_uuids(val):
     if isinstance(val, uuid.UUID):
@@ -44,6 +70,7 @@ class NormalizedCollection:
         filter = normalize_uuids(filter)
         update = normalize_uuids(update)
         res = self._collection.update_one(filter, update, *args, **kwargs)
+        save_mock_db()
         if "test" in sys.argv:
             try:
                 from core.tests_sync import sync_mongodb_to_sql
@@ -55,19 +82,26 @@ class NormalizedCollection:
     def update_many(self, filter, update, *args, **kwargs):
         filter = normalize_uuids(filter)
         update = normalize_uuids(update)
-        return self._collection.update_many(filter, update, *args, **kwargs)
+        res = self._collection.update_many(filter, update, *args, **kwargs)
+        save_mock_db()
+        return res
 
     def delete_one(self, filter, *args, **kwargs):
         filter = normalize_uuids(filter)
-        return self._collection.delete_one(filter, *args, **kwargs)
+        res = self._collection.delete_one(filter, *args, **kwargs)
+        save_mock_db()
+        return res
 
     def delete_many(self, filter, *args, **kwargs):
         filter = normalize_uuids(filter)
-        return self._collection.delete_many(filter, *args, **kwargs)
+        res = self._collection.delete_many(filter, *args, **kwargs)
+        save_mock_db()
+        return res
 
     def insert_one(self, document, *args, **kwargs):
         document = normalize_uuids(document)
         res = self._collection.insert_one(document, *args, **kwargs)
+        save_mock_db()
         if "test" in sys.argv:
             try:
                 from core.tests_sync import sync_insert_to_sql
@@ -78,7 +112,9 @@ class NormalizedCollection:
 
     def insert_many(self, documents, *args, **kwargs):
         documents = [normalize_uuids(doc) for doc in documents]
-        return self._collection.insert_many(documents, *args, **kwargs)
+        res = self._collection.insert_many(documents, *args, **kwargs)
+        save_mock_db()
+        return res
 
 class NormalizedDatabase:
     def __init__(self, db):
@@ -270,6 +306,51 @@ def create_user(email, username, password, role, clinic_name, mobile_number, add
 
     db.users.insert_one(user_doc)
     return MongoUser(user_doc)
+
+
+def init_local_db():
+    if not is_mock or "test" in sys.argv:
+        return
+    if os.path.exists(LOCAL_DB_FILE):
+        try:
+            with open(LOCAL_DB_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            if "users" in data and data["users"]:
+                for u in data["users"]:
+                    client[db_name].users.insert_one(u)
+            if "subscription_events" in data and data["subscription_events"]:
+                for e in data["subscription_events"]:
+                    client[db_name].subscription_events.insert_one(e)
+            return
+        except Exception as e:
+            print(f"[DentFlow] Error loading local mock DB: {e}")
+    # If no local db exists yet, seed initial admin and doctor
+    try:
+        if not client[db_name].users.find_one({"username": "admin"}):
+            create_user(
+                email="admin@dentflow.com",
+                username="admin",
+                password="password123",
+                role="SUPER_ADMIN",
+                clinic_name="DentFlow Admin",
+                mobile_number="+919999999999",
+                address="DentFlow HQ"
+            )
+        if not client[db_name].users.find_one({"username": "doctor"}):
+            create_user(
+                email="doctor@dentflow.com",
+                username="doctor",
+                password="password123",
+                role="CLINIC_OWNER",
+                clinic_name="DentFlow Dental Care",
+                mobile_number="+919876543210",
+                address="123 Dental Clinic Road"
+            )
+        save_mock_db()
+    except Exception as e:
+        print(f"[DentFlow] Auto-seed warning: {e}")
+
+init_local_db()
 
 
 def update_clinic(user_id, clinic_data):

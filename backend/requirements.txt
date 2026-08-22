@@ -28,3 +28,4 @@ yarl==1.24.2
 dj-database-url==2.1.0
 gunicorn==21.2.0
 pymongo==4.10.1
+mongomock==4.3.0
