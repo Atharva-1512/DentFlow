@@ -1,3 +1,26 @@
+export interface Doctor {
+  id: string;
+  name: string;
+  qualification: string;
+  fee: number;
+  specialization: string;
+  shift: string;
+}
+
+export interface TreatmentCatalogItem {
+  id: string;
+  name: string;
+  category: string;
+  default_cost: number;
+  duration: string;
+}
+
+export interface HolidayItem {
+  id: string;
+  date: string;
+  reason: string;
+}
+
 export interface Clinic {
   id: string;
   name: string;
@@ -5,6 +28,20 @@ export interface Clinic {
   is_active: boolean;
   notification_whatsapp_number?: string;
   address?: string;
+  dci_number?: string;
+  gst_number?: string;
+  invoice_prefix?: string;
+  tax_rate?: number;
+  terms_and_conditions?: string;
+  slot_duration?: number;
+  opening_time?: string;
+  closing_time?: string;
+  break_start?: string;
+  break_end?: string;
+  working_days?: string[];
+  doctors?: Doctor[];
+  treatments_catalog?: TreatmentCatalogItem[];
+  holidays?: HolidayItem[];
   created_at: string;
   // Optional client-side state for Super Admin stats mapping
   subscription_status?: 'TRIAL' | 'ACTIVE' | 'PAYMENT_DUE' | 'EXPIRED' | 'CANCELLED';
@@ -70,6 +107,7 @@ export interface Patient {
 export interface Appointment {
   id: string;
   patient: string; // Patient ID
+  patient_id?: string;
   patient_name?: string;
   patient_mobile?: string;
   appointment_date: string;
@@ -98,14 +136,22 @@ export interface Visit {
   updated_at: string;
 }
 
-/**
- * Timeline event returned by GET /api/patients/:id/timeline/
- * The backend sorts and merges visits and appointments into a single array.
- * Discriminate by event_type field.
- */
-export type TimelineEvent =
-  | (Visit & { event_type: 'VISIT' })
-  | (Appointment & { event_type: 'APPOINTMENT' });
+export interface BaseTimelineItem {
+  id: string;
+  type: 'VISIT' | 'APPOINTMENT' | 'PAYMENT';
+  date: string;
+  doctor?: string;
+  title?: string;
+  description?: string;
+  prescription?: string;
+  notes?: string;
+  status?: string;
+  amount_paid?: number;
+  payment_mode?: string;
+  bill_number?: string;
+}
+
+export type TimelineEvent = BaseTimelineItem;
 
 // API Pagination Response wrapper
 export interface PaginatedResponse<T> {
@@ -113,6 +159,23 @@ export interface PaginatedResponse<T> {
   next: string | null;
   previous: string | null;
   results: T[];
+}
+
+export interface LabWorkOrder {
+  id?: string;
+  patient_id?: string;
+  patient_name: string;
+  patient_mobile?: string;
+  lab_name: string;
+  work_description: string;
+  order_date: string;
+  delivery_date?: string;
+  total_cost: number;
+  amount_paid: number;
+  pending_amount: number;
+  status: 'PENDING' | 'IN_PROGRESS' | 'RECEIVED' | 'COMPLETED' | 'CANCELLED';
+  notes?: string;
+  created_at?: string;
 }
 
 export interface BillTreatment {

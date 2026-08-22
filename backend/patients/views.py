@@ -1,82 +1,63 @@
-import datetime
-from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from core.views import TenantViewSetMixin
-from visits.models import Visit
-from appointments.models import Appointment
-from .models import Patient
+from core.permissions import TenantIsolationPermission, SubscriptionAccessPermission
 from .serializers import PatientSerializer
 
-class PatientViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+class PatientViewSet(viewsets.ViewSet):
     """
-    Patient ViewSet supporting CRUD, global queries, and timeline actions.
-    Is isolated at the database level by TenantViewSetMixin.
+    Patient ViewSet supporting CRUD, global queries, and timeline actions via MongoDB.
     """
-    queryset = Patient.objects.all()
-    serializer_class = PatientSerializer
+    permission_classes = [TenantIsolationPermission, SubscriptionAccessPermission]
 
-    def get_queryset(self):
-        # Standard tenant scoping query
-        queryset = super().get_queryset()
+    def list(self, request):
+        search_query = request.query_params.get('search', None)
+        page = int(request.query_params.get('page', 1))
         
-        # Add global lookup constraints if query parameters is active
-        search_query = self.request.query_params.get('search', None)
-        if search_query:
-            queryset = queryset.filter(
-                Q(full_name__icontains=search_query) |
-                Q(mobile_number__icontains=search_query) |
-                Q(consulting_doctor_name__icontains=search_query)
-            )
-        return queryset
+        from core.mongodb import get_patients
+        data = get_patients(request.user.id, search_query=search_query, page=page)
+        return Response(data)
+
+    def retrieve(self, request, pk=None):
+        from core.mongodb import get_patient_by_id
+        patient = get_patient_by_id(request.user.id, str(pk))
+        if not patient:
+            return Response({"detail": "Patient not found."}, status=status.HTTP_404_NOT_FOUND)
+        serializer = PatientSerializer(patient)
+        return Response(serializer.data)
+
+    def create(self, request):
+        serializer = PatientSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        from core.mongodb import create_patient
+        patient = create_patient(request.user.id, serializer.validated_data)
+        return Response(PatientSerializer(patient).data, status=status.HTTP_201_CREATED)
+
+    def partial_update(self, request, pk=None):
+        serializer = PatientSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        
+        from core.mongodb import update_patient
+        patient = update_patient(request.user.id, str(pk), serializer.validated_data)
+        if not patient:
+            return Response({"detail": "Patient not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(PatientSerializer(patient).data)
+
+    def destroy(self, request, pk=None):
+        from core.mongodb import delete_patient
+        success = delete_patient(request.user.id, str(pk))
+        if not success:
+            return Response({"detail": "Patient not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['get'])
     def timeline(self, request, pk=None):
         """
         GET /api/patients/<id>/timeline/
-        Returns chronological listings of both completed visits and scheduled appointments.
+        Returns chronological listings of both completed visits and scheduled appointments from MongoDB.
         """
-        patient = self.get_object()
-        
-        # Query historical collections
-        # Tenant filters automatically checked since core models objects uses TenantManager
-        visits = Visit.objects.filter(patient=patient)
-        appointments = Appointment.objects.filter(patient=patient)
-
-        timeline_data = []
-
-        # Serialize visits
-        for visit in visits:
-            timeline_data.append({
-                "id": str(visit.id),
-                "type": "VISIT",
-                "date": visit.visit_date.isoformat(),
-                "doctor": visit.consulting_doctor,
-                "title": f"Visit Consultation - {visit.consulting_doctor}",
-                "description": f"Diagnosis: {visit.diagnosis}. Treatment: {visit.treatment_given}",
-                "prescription": visit.prescription_notes,
-                "notes": visit.general_notes,
-                "status": "COMPLETED"
-            })
-
-        # Serialize appointments
-        for appt in appointments:
-            # Combine Date and Time
-            appt_dt = datetime.datetime.combine(appt.appointment_date, appt.appointment_time)
-            timeline_data.append({
-                "id": str(appt.id),
-                "type": "APPOINTMENT",
-                "date": appt_dt.isoformat(),
-                "doctor": appt.consulting_doctor,
-                "title": f"Appointment ({appt.get_appointment_type_display()})",
-                "description": f"Reason: {appt.appointment_reason}",
-                "prescription": "",
-                "notes": "",
-                "status": appt.status
-            })
-
-        # Sort chronologically by date descending (latest first)
-        timeline_data.sort(key=lambda x: x['date'], reverse=True)
+        from core.mongodb import get_patient_timeline
+        timeline_data = get_patient_timeline(request.user.id, str(pk))
         return Response(timeline_data)

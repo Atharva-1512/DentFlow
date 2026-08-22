@@ -22,7 +22,8 @@ def get_clinic_for_request(request):
                 request._cached_user = user
             else:
                 try:
-                    authenticator = JWTAuthentication()
+                    from core.authentication import CachedJWTAuthentication
+                    authenticator = CachedJWTAuthentication()
                     header = authenticator.get_header(request)
                     if header:
                         raw_token = authenticator.get_raw_token(header)
@@ -39,16 +40,17 @@ def get_clinic_for_request(request):
             request._cached_clinic = None
             return request._cached_clinic
 
-        from accounts.models import UserRole
-        from clinics.models import Clinic
-
-        if user.role == UserRole.SUPER_ADMIN:
+        if user.role == 'SUPER_ADMIN':
             impersonate_id = request.headers.get('X-Impersonate-Clinic')
             if impersonate_id:
                 try:
-                    clinic = Clinic.objects.get(id=impersonate_id)
-                    request._cached_clinic = clinic
-                except (Clinic.DoesNotExist, ValueError, ValidationError) as e:
+                    from core.mongodb import get_user_by_clinic_id
+                    owner_user = get_user_by_clinic_id(impersonate_id)
+                    if owner_user:
+                        request._cached_clinic = owner_user.clinic
+                    else:
+                        raise ValueError("Impersonation clinic owner not found")
+                except Exception as e:
                     logger.warning(f"Impersonation failure by Super Admin: {str(e)}")
                     raise PermissionDenied("Invalid impersonation clinic ID.")
             else:

@@ -1,152 +1,118 @@
-import hmac
-import hashlib
-import json
-import logging
 import uuid
+import logging
+import datetime
 from django.conf import settings
-from django.db import transaction
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
-from core.permissions import SubscriptionAccessPermission
-from clinics.models import Clinic
-from .models import SubscriptionPlan, ClinicSubscription, SubscriptionStatus
-from .serializers import ClinicSubscriptionSerializer, SubscriptionPlanSerializer
-from .services import process_razorpay_webhook
+from .serializers import ClinicSubscriptionSerializer
 
 logger = logging.getLogger('dentflow.billing')
 
 class CurrentSubscriptionView(APIView):
     """
     GET /api/subscriptions/current/
-    Returns current subscription status, remaining trial days, and renewal info.
+    Returns current subscription status, remaining trial days, and renewal info from MongoDB.
     """
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        clinic = request.clinic
-        if not clinic:
-            return Response({"detail": "No clinic associated with user profile."}, status=status.HTTP_400_BAD_REQUEST)
-            
-        try:
-            subscription = ClinicSubscription.objects.get(clinic=clinic)
-            # Auto-upgrade existing PAYMENT_DUE subscriptions that never had a trial to TRIAL status
-            # if trial is currently enabled. This fixes accounts registered when trials were off.
-            trial_enabled = getattr(settings, 'TRIAL_ENABLED', True)
-            if trial_enabled and subscription.status == SubscriptionStatus.PAYMENT_DUE and subscription.trial_start_date is None:
-                trial_days = getattr(settings, 'TRIAL_DAYS', 7)
-                trial_end = timezone.now() + timezone.timedelta(days=trial_days)
-                subscription.status = SubscriptionStatus.TRIAL
-                subscription.trial_start_date = timezone.now().date()
-                subscription.trial_end_date = trial_end
-                subscription.save(update_fields=['status', 'trial_start_date', 'trial_end_date'])
-        except ClinicSubscription.DoesNotExist:
-            # Safe seeding for clinics without subscription record
-            plan, _ = SubscriptionPlan.objects.get_or_create(
-                code='starter',
-                defaults={'name': 'Starter Plan (Monthly)', 'price': 199.00, 'billing_cycle': 'monthly'}
-            )
-            
-            # Start trial or payment due depending on environment setting
+        from core.mongodb import get_subscription, create_or_update_subscription
+        sub = get_subscription(request.user.id)
+        
+        # If no subscription is present, initialize/seed one
+        if not sub:
             trial_enabled = getattr(settings, 'TRIAL_ENABLED', True)
             if trial_enabled:
                 trial_days = getattr(settings, 'TRIAL_DAYS', 7)
                 trial_end = timezone.now() + timezone.timedelta(days=trial_days)
-                subscription = ClinicSubscription.objects.create(
-                    clinic=clinic,
-                    plan=plan,
-                    status=SubscriptionStatus.TRIAL,
-                    trial_start_date=timezone.now().date(),
-                    trial_end_date=trial_end
-                )
+                sub_data = {
+                    "plan_code": "starter",
+                    "status": "TRIAL",
+                    "trial_start_date": timezone.now().date(),
+                    "trial_end_date": trial_end
+                }
             else:
-                subscription = ClinicSubscription.objects.create(
-                    clinic=clinic,
-                    plan=plan,
-                    status=SubscriptionStatus.PAYMENT_DUE
-                )
+                sub_data = {
+                    "plan_code": "starter",
+                    "status": "PAYMENT_DUE"
+                }
+            sub = create_or_update_subscription(request.user.id, sub_data)
 
-        serializer = ClinicSubscriptionSerializer(subscription)
-        return Response(serializer.data)
+        # Auto-upgrade PAYMENT_DUE with no trial to TRIAL status if trial enabled
+        trial_enabled = getattr(settings, 'TRIAL_ENABLED', True)
+        if trial_enabled and sub.get('status') == 'PAYMENT_DUE' and sub.get('trial_start_date') is None:
+            trial_days = getattr(settings, 'TRIAL_DAYS', 7)
+            trial_end = timezone.now() + timezone.timedelta(days=trial_days)
+            sub = create_or_update_subscription(request.user.id, {
+                "status": "TRIAL",
+                "trial_start_date": timezone.now().date(),
+                "trial_end_date": trial_end
+            })
+
+        return Response(ClinicSubscriptionSerializer(sub).data)
 
 
 class CreateSubscriptionView(APIView):
     """
     POST /api/subscriptions/create/
-    Creates a Razorpay Subscription checkout session.
+    Creates a Razorpay Subscription checkout session using MongoDB.
     """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        clinic = request.clinic
-        if not clinic:
-            return Response({"detail": "No clinic associated with user profile."}, status=status.HTTP_400_BAD_REQUEST)
-
         plan_code = request.data.get('plan_code', 'starter')
-        try:
-            plan = SubscriptionPlan.objects.get(code=plan_code, is_active=True)
-        except SubscriptionPlan.DoesNotExist:
-            return Response({"detail": f"Pricing plan '{plan_code}' not found."}, status=status.HTTP_404_NOT_FOUND)
-
+        
         key_id = getattr(settings, 'RAZORPAY_KEY_ID', '')
         key_secret = getattr(settings, 'RAZORPAY_KEY_SECRET', '')
-
-        # Fallback to mock behavior if keys are placeholders or empty (perfect for local testing)
         is_mock = getattr(settings, 'DEBUG', True) and (not key_id or "placeholder" in key_id)
 
-        # Get or create subscription model context
-        subscription, _ = ClinicSubscription.objects.get_or_create(
-            clinic=clinic,
-            defaults={'plan': plan, 'status': SubscriptionStatus.PAYMENT_DUE}
-        )
+        from core.mongodb import get_subscription, create_or_update_subscription
+        sub = get_subscription(request.user.id) or {}
+        
+        # Determine plan name and price
+        plan_name = "Starter Plan (Monthly)" if plan_code == 'starter' else "Starter Plan (3-Months)"
+        plan_price = 199.00 if plan_code == 'starter' else 299.00
 
-        # Update plan if they are switching/subscribing
-        if subscription.plan != plan:
-            subscription.plan = plan
-            subscription.save()
+        # Update sub plan code
+        if sub.get('plan_code') != plan_code:
+            sub = create_or_update_subscription(request.user.id, {"plan_code": plan_code})
 
         if is_mock:
             mock_sub_id = f"sub_mock_{uuid.uuid4().hex[:12]}"
-            subscription.razorpay_subscription_id = mock_sub_id
-            subscription.save(update_fields=['razorpay_subscription_id'])
-            
+            create_or_update_subscription(request.user.id, {"razorpay_subscription_id": mock_sub_id})
             return Response({
                 "checkout_url": None,
                 "razorpay_subscription_id": mock_sub_id,
                 "razorpay_key_id": "rzp_test_placeholder_key",
-                "amount": float(plan.price),
-                "plan_name": plan.name,
+                "amount": plan_price,
+                "plan_name": plan_name,
                 "is_mock": True,
                 "detail": "Mock subscription checkout initialized."
             })
-        
+            
         # Real Razorpay implementation
         import razorpay
         try:
             client = razorpay.Client(auth=(key_id, key_secret))
-            
-            # Map plan code to Razorpay plan ID (use custom property or lookup table)
-            # For testing, we look for a field razorpay_plan_id on plan, or default to a generated one
-            razorpay_plan_id = subscription.razorpay_plan_id or "plan_starter_placeholder"
+            razorpay_plan_id = "plan_starter_placeholder"
             
             sub_payload = {
                 "plan_id": razorpay_plan_id,
                 "customer_notify": 1,
-                "total_count": 12, # 12 cycles e.g. 1 year
+                "total_count": 12,
             }
-            
             razorpay_sub = client.subscription.create(data=sub_payload)
-            subscription.razorpay_subscription_id = razorpay_sub['id']
-            subscription.save(update_fields=['razorpay_subscription_id'])
+            create_or_update_subscription(request.user.id, {"razorpay_subscription_id": razorpay_sub['id']})
 
             return Response({
                 "razorpay_subscription_id": razorpay_sub['id'],
                 "razorpay_key_id": key_id,
-                "amount": float(plan.price),
-                "plan_name": plan.name,
+                "amount": plan_price,
+                "plan_name": plan_name,
                 "is_mock": False
             })
         except Exception as e:
@@ -157,41 +123,30 @@ class CreateSubscriptionView(APIView):
 class CancelSubscriptionView(APIView):
     """
     POST /api/subscriptions/cancel/
-    Cancels current active subscription at the end of the billing period.
+    Cancels current active subscription at the end of the billing period using MongoDB.
     """
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        clinic = request.clinic
-        if not clinic:
-            return Response({"detail": "No clinic associated."}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            subscription = ClinicSubscription.objects.get(clinic=clinic)
-        except ClinicSubscription.DoesNotExist:
+        from core.mongodb import get_subscription, cancel_subscription
+        sub = get_subscription(request.user.id)
+        if not sub:
             return Response({"detail": "No subscription found."}, status=status.HTTP_404_NOT_FOUND)
 
         key_id = getattr(settings, 'RAZORPAY_KEY_ID', '')
         key_secret = getattr(settings, 'RAZORPAY_KEY_SECRET', '')
-        is_mock = getattr(settings, 'DEBUG', True) and (not key_id or "placeholder" in key_id or not subscription.razorpay_subscription_id or "mock" in subscription.razorpay_subscription_id)
+        razorpay_sub_id = sub.get('razorpay_subscription_id', '')
+        is_mock = getattr(settings, 'DEBUG', True) and (not key_id or "placeholder" in key_id or not razorpay_sub_id or "mock" in razorpay_sub_id)
 
         if is_mock:
-            # Immediate local mock cancellation
-            subscription.status = SubscriptionStatus.CANCELLED
-            subscription.cancelled_at = timezone.now()
-            subscription.save()
+            cancel_subscription(request.user.id)
             return Response({"detail": "Subscription cancelled successfully (Mock)."})
 
-        # Real Razorpay cancellation
         import razorpay
         try:
             client = razorpay.Client(auth=(key_id, key_secret))
-            # Cancel at the end of billing cycle
-            client.subscription.cancel(subscription.razorpay_subscription_id, {"cancel_at_cycle_end": 1})
-            
-            subscription.status = SubscriptionStatus.CANCELLED
-            subscription.cancelled_at = timezone.now()
-            subscription.save()
+            client.subscription.cancel(razorpay_sub_id, {"cancel_at_cycle_end": 1})
+            cancel_subscription(request.user.id)
             return Response({"detail": "Renewal cancelled successfully."})
         except Exception as e:
             logger.error(f"Razorpay subscription cancel failure: {str(e)}")
@@ -201,30 +156,29 @@ class CancelSubscriptionView(APIView):
 class RazorpayWebhookView(APIView):
     """
     POST /api/webhooks/razorpay/
-    HMAC signature-verified webhook handler processing notifications atomically.
+    HMAC signature-verified webhook handler processing notifications atomically to MongoDB.
     """
     permission_classes = [AllowAny]
 
     def post(self, request):
-        # Extract body and signature for verification
+        import hmac
+        import hashlib
+        import json
+        
         payload_bytes = request.body
         signature = request.headers.get('X-Razorpay-Signature')
         webhook_secret = getattr(settings, 'RAZORPAY_WEBHOOK_SECRET', '')
 
-        # 1. Enforce signature validation
         if webhook_secret and signature:
-            # Case-secure constant time comparison
             expected = hmac.new(
                 webhook_secret.encode('utf-8'),
                 payload_bytes,
                 hashlib.sha256
             ).hexdigest()
-            
             if not hmac.compare_digest(expected, signature):
                 logger.warning("Razorpay webhook signature verification failed.")
                 return Response({"detail": "Invalid signature."}, status=status.HTTP_400_BAD_REQUEST)
         
-        # 2. Extract payload fields
         try:
             payload_json = json.loads(payload_bytes.decode('utf-8'))
         except (ValueError, UnicodeDecodeError):
@@ -236,9 +190,49 @@ class RazorpayWebhookView(APIView):
         if not event_id or not event_type:
             return Response({"detail": "Missing identifier parameters."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 3. Atomic process routing
         try:
-            event = process_razorpay_webhook(event_id, event_type, payload_json)
+            from core.mongodb import db
+            
+            # Check event deduplication
+            if db.subscription_events.find_one({"razorpay_event_id": event_id}):
+                logger.info(f"Duplicate Razorpay webhook event ignored: {event_id}")
+                return Response({"status": "processed"})
+
+            # Log the event
+            db.subscription_events.insert_one({
+                "razorpay_event_id": event_id,
+                "event_type": event_type,
+                "payload": payload_json,
+                "created_at": timezone.now().isoformat()
+            })
+
+            # Resolve Razorpay subscription identifier from payload
+            sub_payload = payload_json.get('payload', {}).get('subscription', {}).get('entity', {})
+            razorpay_sub_id = sub_payload.get('id') if sub_payload else None
+
+            if razorpay_sub_id:
+                user_doc = db.users.find_one({"subscription.razorpay_subscription_id": razorpay_sub_id})
+                if user_doc:
+                    user_id = user_doc["_id"]
+                    sub = user_doc["subscription"]
+                    
+                    if event_type in ['subscription.activated', 'payment.captured']:
+                        sub["status"] = "ACTIVE"
+                        sub["grace_period_end_date"] = None
+                    elif event_type == 'payment.failed':
+                        sub["status"] = "PAYMENT_DUE"
+                        grace_days = getattr(settings, 'SUBSCRIPTION_GRACE_DAYS', 3)
+                        grace_end = timezone.now() + timezone.timedelta(days=grace_days)
+                        sub["grace_period_end_date"] = grace_end.isoformat()
+                    elif event_type == 'subscription.cancelled':
+                        sub["status"] = "CANCELLED"
+                        sub["cancelled_at"] = timezone.now().isoformat()
+
+                    db.users.update_one(
+                        {"_id": user_id},
+                        {"$set": {"subscription": sub, "updated_at": timezone.now().isoformat()}}
+                    )
+            
             return Response({"status": "processed"})
         except Exception as e:
             logger.error(f"Webhook execution failure: {str(e)}")

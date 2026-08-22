@@ -1,62 +1,64 @@
-from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from core.views import TenantViewSetMixin
-from .models import Appointment, AppointmentStatus
+from core.permissions import TenantIsolationPermission, SubscriptionAccessPermission
 from .serializers import AppointmentSerializer
 
-class AppointmentViewSet(TenantViewSetMixin, viewsets.ModelViewSet):
+class AppointmentViewSet(viewsets.ViewSet):
     """
-    Appointment ViewSet managing CRUD, list scoping, and status updates.
-    Tenant isolation is automatically enforced by TenantViewSetMixin.
+    Appointment ViewSet managing CRUD, list scoping, and status updates via MongoDB.
     """
-    queryset = Appointment.objects.all()
-    serializer_class = AppointmentSerializer
+    permission_classes = [TenantIsolationPermission, SubscriptionAccessPermission]
 
-    def get_queryset(self):
-        queryset = super().get_queryset()
+    def list(self, request):
+        status_filter = request.query_params.get('status', None)
+        today_only = request.query_params.get('today', 'false').lower() == 'true'
+        upcoming_only = request.query_params.get('upcoming', 'false').lower() == 'true'
+        page = int(request.query_params.get('page', 1))
+
+        from core.mongodb import get_appointments
+        data = get_appointments(
+            request.user.id,
+            today_only=today_only,
+            upcoming_only=upcoming_only,
+            status_filter=status_filter,
+            page=page
+        )
+        return Response(data)
+
+    def create(self, request):
+        serializer = AppointmentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
         
-        # Support filtering by date range or status directly
-        status_filter = self.request.query_params.get('status', None)
-        if status_filter:
-            queryset = queryset.filter(status=status_filter)
+        from core.mongodb import create_appointment
+        appt = create_appointment(request.user.id, serializer.validated_data)
+        if not appt:
+            return Response({"detail": "Failed to create appointment: patient not found."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(AppointmentSerializer(appt).data, status=status.HTTP_201_CREATED)
 
-        # Support 'today' shortcut
-        today_only = self.request.query_params.get('today', None)
-        if today_only and today_only.lower() == 'true':
-            queryset = queryset.filter(appointment_date=timezone.now().date())
-
-        # Support 'upcoming' shortcut (future appointments)
-        upcoming_only = self.request.query_params.get('upcoming', None)
-        if upcoming_only and upcoming_only.lower() == 'true':
-            queryset = queryset.filter(
-                appointment_date__gt=timezone.now().date()
-            ) | queryset.filter(
-                appointment_date=timezone.now().date(),
-                appointment_time__gte=timezone.now().time()
-            )
-
-        return queryset
+    def partial_update(self, request, pk=None):
+        serializer = AppointmentSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        
+        from core.mongodb import update_appointment
+        appt = update_appointment(request.user.id, str(pk), serializer.validated_data)
+        if not appt:
+            return Response({"detail": "Appointment not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(AppointmentSerializer(appt).data)
 
     @action(detail=True, methods=['patch'])
     def change_status(self, request, pk=None):
         """
         PATCH /api/appointments/<id>/change_status/
-        Updates appointment state values (SCHEDULED, COMPLETED, CANCELLED).
+        Updates appointment status values in MongoDB.
         """
-        appointment = self.get_object()
         new_status = request.data.get('status')
-        
-        if new_status not in AppointmentStatus.values:
-            return Response(
-                {"detail": f"Invalid status. Must be one of: {', '.join(AppointmentStatus.values)}"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        if not new_status:
+            return Response({"detail": "Status field is required."}, status=status.HTTP_400_BAD_REQUEST)
             
-        appointment.status = new_status
-        appointment.save(update_fields=['status'])
-        
-        serializer = self.get_serializer(appointment)
-        return Response(serializer.data)
+        from core.mongodb import change_appointment_status
+        appt = change_appointment_status(request.user.id, str(pk), new_status)
+        if not appt:
+            return Response({"detail": "Appointment not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(AppointmentSerializer(appt).data)

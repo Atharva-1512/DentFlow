@@ -1,18 +1,14 @@
-import datetime
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.utils.dateparse import parse_date
 
 from core.permissions import TenantIsolationPermission, SubscriptionAccessPermission
-from appointments.models import Appointment
-from visits.models import Visit
 
 class CalendarEventsView(APIView):
     """
     GET /api/calendar/events/
     Fetches scheduled appointments and visits within a target date range ('start' and 'end' query parameters),
-    returning a payload schema configured for FullCalendar component integration.
+    returning a payload schema configured for FullCalendar component integration from MongoDB.
     """
     permission_classes = [TenantIsolationPermission, SubscriptionAccessPermission]
 
@@ -26,87 +22,6 @@ class CalendarEventsView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        start_date = parse_date(start_param)
-        end_date = parse_date(end_param)
-
-        if not start_date or not end_date:
-            return Response(
-                {"detail": "Invalid date formats. Must match YYYY-MM-DD."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        clinic = request.clinic
-        if not clinic:
-            return Response([])
-
-        # Query appointments scoped to request.clinic
-        appointments = Appointment.objects.filter(
-            clinic=clinic,
-            appointment_date__range=[start_date, end_date]
-        ).select_related('patient')
-
-        # Query visits scoped to request.clinic in the same date range
-        visits = Visit.objects.filter(
-            clinic=clinic,
-            visit_date__date__range=[start_date, end_date]
-        ).select_related('patient')
-
-        events = []
-
-        # Color mapping based on status / type
-        class_map = {
-            'SCHEDULED': 'appt-scheduled',
-            'COMPLETED': 'appt-completed',
-            'CANCELLED': 'appt-cancelled',
-        }
-
-        # 1. Serialize Appointments
-        for appt in appointments:
-            start_dt = datetime.datetime.combine(appt.appointment_date, appt.appointment_time)
-            # Default duration of 30 minutes per appointment
-            end_dt = start_dt + datetime.timedelta(minutes=30)
-            
-            title = f"{appt.patient.full_name} - {appt.get_appointment_type_display()}"
-
-            events.append({
-                "id": str(appt.id),
-                "title": title,
-                "start": start_dt.isoformat(),
-                "end": end_dt.isoformat(),
-                "className": class_map.get(appt.status, 'appt-scheduled'),
-                "extendedProps": {
-                    "patient_name": appt.patient.full_name,
-                    "mobile_number": appt.patient.mobile_number,
-                    "consulting_doctor": appt.consulting_doctor,
-                    "appointment_reason": appt.appointment_reason,
-                    "appointment_type": appt.appointment_type,
-                    "status": appt.status
-                }
-            })
-
-        # 2. Serialize Completed Visits / Follow-ups
-        for visit in visits:
-            # Make sure we combine the visit_date datetime object correctly
-            # If visit_date is already a timezone-aware datetime, convert/format it
-            start_dt = visit.visit_date
-            end_dt = start_dt + datetime.timedelta(minutes=30)
-            
-            title = f"{visit.patient.full_name} - Visit ({visit.consulting_doctor})"
-
-            events.append({
-                "id": f"visit-{visit.id}",
-                "title": title,
-                "start": start_dt.isoformat(),
-                "end": end_dt.isoformat(),
-                "className": "appt-completed", # Display completed visits as green
-                "extendedProps": {
-                    "patient_name": visit.patient.full_name,
-                    "mobile_number": visit.patient.mobile_number,
-                    "consulting_doctor": visit.consulting_doctor,
-                    "appointment_reason": f"Diagnosis: {visit.diagnosis}\nTreatment: {visit.treatment_given}",
-                    "appointment_type": "VISIT",
-                    "status": "COMPLETED"
-                }
-            })
-
+        from core.mongodb import get_calendar_events
+        events = get_calendar_events(request.user.id, start_param, end_param)
         return Response(events)

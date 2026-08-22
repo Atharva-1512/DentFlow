@@ -53,7 +53,6 @@ INSTALLED_APPS = [
     'core',
     'accounts',
     'clinics',
-    'subscriptions',
     'patients',
     'visits',
     'appointments',

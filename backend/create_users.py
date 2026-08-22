@@ -1,75 +1,43 @@
 import os
 import django
+
+# Setup Django (needed to load settings and make password hashing utilities work)
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'dentflow.settings')
 django.setup()
 
-from django.utils import timezone
-from django.contrib.auth import get_user_model
-from clinics.models import Clinic
-from subscriptions.models import SubscriptionPlan, ClinicSubscription, SubscriptionStatus
+from core.mongodb import db, create_user
 
-User = get_user_model()
+print("Seeding MongoDB...")
 
-clinic, _ = Clinic.objects.get_or_create(name='Test Clinic', slug='test-clinic')
+# Clear existing users to start fresh
+db.users.delete_many({})
+db.subscription_events.delete_many({})
 
-# Ensure clinic has a WhatsApp number for receiving summaries
-if not clinic.notification_whatsapp_number:
-    clinic.notification_whatsapp_number = '+919876543210'
-    clinic.save(update_fields=['notification_whatsapp_number'])
-
-admin_user, admin_created = User.objects.get_or_create(email='admin@dentflow.com', username='admin')
-if admin_created:
-    admin_user.set_password('password123')
-    admin_user.role = 'SUPER_ADMIN'
-    admin_user.is_staff = True
-    admin_user.is_superuser = True
-    admin_user.save()
-
-owner_user, owner_created = User.objects.get_or_create(email='doctor@dentflow.com', username='doctor')
-if owner_created:
-    owner_user.set_password('password123')
-    owner_user.role = 'CLINIC_OWNER'
-    owner_user.clinic = clinic
-    owner_user.save()
-
-# Seed starter subscription plans
-plan, _ = SubscriptionPlan.objects.get_or_create(
-    code='starter',
-    defaults={
-        'name': 'Starter Plan (Monthly)',
-        'price': 199.00,
-        'billing_cycle': 'monthly',
-        'is_active': True
-    }
+# 1. Create Super Admin
+admin_user = create_user(
+    email="admin@dentflow.com",
+    username="admin",
+    password="password123",
+    role="SUPER_ADMIN",
+    clinic_name="Admin",
+    mobile_number="",
+    address=""
 )
+print("Super Admin created successfully!")
 
-plan_quarterly, _ = SubscriptionPlan.objects.get_or_create(
-    code='starter_quarterly',
-    defaults={
-        'name': 'Starter Plan (3-Months)',
-        'price': 299.00,
-        'billing_cycle': 'quarterly',
-        'is_active': True
-    }
+# 2. Create Clinic Owner
+owner_user = create_user(
+    email="doctor@dentflow.com",
+    username="doctor",
+    password="password123",
+    role="CLINIC_OWNER",
+    clinic_name="Test Clinic",
+    mobile_number="+919876543210",
+    address="123 Clinic Street"
 )
+print("Clinic Owner created successfully!")
 
-# Assign an active subscription to the test clinic
-subscription, sub_created = ClinicSubscription.objects.get_or_create(
-    clinic=clinic,
-    defaults={
-        'plan': plan,
-        'status': SubscriptionStatus.ACTIVE,
-        'start_date': timezone.now().date(),
-        'next_billing_date': timezone.now().date() + timezone.timedelta(days=30),
-    }
-)
-
-if sub_created:
-    print(f'Subscription created: {subscription}')
-else:
-    print(f'Subscription already exists: {subscription}')
-
-print('Accounts ready!')
-print('---')
-print('Super Admin  => username: admin  | email: admin@dentflow.com  | password: password123')
-print('Clinic Owner => username: doctor | email: doctor@dentflow.com | password: password123')
+print("MongoDB Seeding complete!")
+print("---")
+print("Super Admin  => username: admin  | email: admin@dentflow.com  | password: password123")
+print("Clinic Owner => username: doctor | email: doctor@dentflow.com | password: password123")

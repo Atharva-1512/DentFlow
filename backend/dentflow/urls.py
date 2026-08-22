@@ -17,7 +17,6 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from subscriptions.views import RazorpayWebhookView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -28,8 +27,6 @@ urlpatterns = [
     
     # Feature modular API routing
     path('api/accounts/', include('accounts.urls')),
-    path('api/subscriptions/', include('subscriptions.urls')),
-    path('api/webhooks/razorpay/', RazorpayWebhookView.as_view(), name='razorpay_webhook'),
     path('api/patients/', include('patients.urls')),
     path('api/visits/', include('visits.urls')),
     path('api/appointments/', include('appointments.urls')),

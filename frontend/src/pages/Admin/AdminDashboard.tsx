@@ -25,8 +25,6 @@ import {
 import {
   Business as ClinicIcon,
   CheckCircle as ActiveIcon,
-  EventNote as EventIcon,
-  Error as ErrorIcon,
   Search as SearchIcon,
 } from '@mui/icons-material';
 import api from '../../services/api';
@@ -60,13 +58,6 @@ export const AdminDashboard: React.FC = () => {
   // Calculate statistics from the clinics array
   const totalClinics = clinics.length;
   const activeClinics = clinics.filter((c) => c.is_active).length;
-  const expiredClinics = clinics.filter((c) => !c.is_active).length;
-  
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const trialClinics = clinics.filter(
-    (c) => c.is_active && new Date(c.created_at) >= sevenDaysAgo
-  ).length;
 
   const filteredClinics = clinics.filter((c) => {
     const term = searchTerm.toLowerCase();
@@ -86,12 +77,12 @@ export const AdminDashboard: React.FC = () => {
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <Card sx={{ borderLeft: '4px solid #64748B', boxShadow: 2 }}>
             <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box>
                 <Typography color="text.secondary" variant="overline" sx={{ fontWeight: 600 }}>
-                  Total Clinics
+                  Total Registered Clinics
                 </Typography>
                 <Typography variant="h4" sx={{ fontWeight: 700, fontFamily: 'Outfit' }}>
                   {isLoading ? <Skeleton width={50} /> : totalClinics}
@@ -103,12 +94,12 @@ export const AdminDashboard: React.FC = () => {
             </CardContent>
           </Card>
         </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+        <Grid size={{ xs: 12, sm: 6 }}>
           <Card sx={{ borderLeft: '4px solid #10B981', boxShadow: 2 }}>
             <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box>
                 <Typography color="text.secondary" variant="overline" sx={{ fontWeight: 600 }}>
-                  Active Clinics
+                  Active System Clinics
                 </Typography>
                 <Typography variant="h4" sx={{ fontWeight: 700, fontFamily: 'Outfit' }}>
                   {isLoading ? <Skeleton width={50} /> : activeClinics}
@@ -116,40 +107,6 @@ export const AdminDashboard: React.FC = () => {
               </Box>
               <Avatar sx={{ bgcolor: 'success.light', color: 'success.main', width: 48, height: 48 }}>
                 <ActiveIcon />
-              </Avatar>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card sx={{ borderLeft: '4px solid #2563EB', boxShadow: 2 }}>
-            <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Box>
-                <Typography color="text.secondary" variant="overline" sx={{ fontWeight: 600 }}>
-                  Trial Clinics
-                </Typography>
-                <Typography variant="h4" sx={{ fontWeight: 700, fontFamily: 'Outfit' }}>
-                  {isLoading ? <Skeleton width={50} /> : trialClinics}
-                </Typography>
-              </Box>
-              <Avatar sx={{ bgcolor: 'primary.light', color: 'primary.main', width: 48, height: 48 }}>
-                <EventIcon />
-              </Avatar>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-          <Card sx={{ borderLeft: '4px solid #EF4444', boxShadow: 2 }}>
-            <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Box>
-                <Typography color="text.secondary" variant="overline" sx={{ fontWeight: 600 }}>
-                  Expired Clinics
-                </Typography>
-                <Typography variant="h4" sx={{ fontWeight: 700, fontFamily: 'Outfit' }}>
-                  {isLoading ? <Skeleton width={50} /> : expiredClinics}
-                </Typography>
-              </Box>
-              <Avatar sx={{ bgcolor: 'error.light', color: 'error.main', width: 48, height: 48 }}>
-                <ErrorIcon />
               </Avatar>
             </CardContent>
           </Card>

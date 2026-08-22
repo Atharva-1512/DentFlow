@@ -105,6 +105,7 @@ export const TodayAppointments: React.FC = () => {
       filterable: false,
       renderCell: (params) => {
         const appt = params.row as Appointment;
+        const targetPatientId = appt.patient || appt.patient_id;
         return (
           <Box sx={{ display: 'flex', gap: 1, height: '100%', alignItems: 'center' }}>
             <Button
@@ -112,7 +113,12 @@ export const TodayAppointments: React.FC = () => {
               variant="outlined"
               color="primary"
               startIcon={<ViewIcon />}
-              onClick={() => navigate(`/patients/${appt.patient}`)}
+              onClick={() => {
+                if (targetPatientId) {
+                  navigate(`/patients/${targetPatientId}`);
+                }
+              }}
+              disabled={!targetPatientId}
               sx={{ textTransform: 'none', fontWeight: 600 }}
               id={`open-patient-${appt.id}`}
             >
@@ -123,8 +129,12 @@ export const TodayAppointments: React.FC = () => {
               variant="contained"
               color="success"
               startIcon={<StartIcon />}
-              onClick={() => navigate(`/patients/new?patient_id=${appt.patient}`)}
-              disabled={appt.status === 'COMPLETED' || appt.status === 'CANCELLED'}
+              onClick={() => {
+                if (targetPatientId) {
+                  navigate(`/patients/new?patient_id=${targetPatientId}`);
+                }
+              }}
+              disabled={!targetPatientId || appt.status === 'COMPLETED' || appt.status === 'CANCELLED'}
               sx={{ textTransform: 'none', fontWeight: 600 }}
               id={`start-visit-${appt.id}`}
             >

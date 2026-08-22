@@ -1,16 +1,17 @@
 from rest_framework import serializers
-from .models import Appointment
 
-class AppointmentSerializer(serializers.ModelSerializer):
-    appointment_type_display = serializers.CharField(source='get_appointment_type_display', read_only=True)
-    patient_name = serializers.CharField(source='patient.full_name', read_only=True)
-    patient_mobile = serializers.CharField(source='patient.mobile_number', read_only=True)
-
-    class Meta:
-        model = Appointment
-        fields = [
-            'id', 'patient', 'patient_name', 'patient_mobile', 'appointment_date', 'appointment_time', 
-            'consulting_doctor', 'appointment_type', 'appointment_type_display',
-            'appointment_reason', 'status', 'created_at', 'updated_at'
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
+class AppointmentSerializer(serializers.Serializer):
+    id = serializers.CharField(read_only=True)
+    patient = serializers.CharField(required=False, allow_null=True)
+    patient_id = serializers.CharField(required=False, allow_null=True)
+    patient_name = serializers.CharField(read_only=True, required=False)
+    patient_mobile = serializers.CharField(read_only=True, required=False)
+    appointment_date = serializers.CharField()
+    appointment_time = serializers.CharField()
+    consulting_doctor = serializers.CharField(max_length=255)
+    appointment_type = serializers.CharField(required=False, default='CONSULTATION')
+    appointment_type_display = serializers.CharField(read_only=True, required=False)
+    appointment_reason = serializers.CharField(required=False, allow_blank=True, default='')
+    status = serializers.CharField(required=False, default='SCHEDULED')
+    created_at = serializers.CharField(read_only=True, required=False)
+    updated_at = serializers.CharField(read_only=True, required=False)

@@ -46,30 +46,6 @@ export const RoleGuard: React.FC<RoleGuardProps> = ({ allowedRoles }) => {
 };
 
 export const SubscriptionGuard: React.FC = () => {
-  const { user, subscription } = useAuth();
-
-  // Super Admins bypass subscription verification checks (impersonation contexts handled dynamically)
-  if (user?.role === 'SUPER_ADMIN') {
-    return <Outlet />;
-  }
-
-  if (!subscription) {
-    return <Navigate to="/subscription" replace />;
-  }
-
-  const { status, grace_period_end_date } = subscription;
-
-  if (status === 'ACTIVE' || status === 'TRIAL') {
-    return <Outlet />;
-  }
-
-  if (status === 'PAYMENT_DUE') {
-    if (grace_period_end_date && new Date(grace_period_end_date) >= new Date()) {
-      return <Outlet />;
-    }
-  }
-
-  // Redirect expired/cancelled clinics to billing configuration portal
-  return <Navigate to="/subscription" replace />;
+  return <Outlet />;
 };
 export default AuthGuard;

@@ -9,3 +9,7 @@ __pycache__/
 .env.production
 .vscode/
 .idea/
+.history/
+mongodb_data/
+.vercel/
+.vercel-tmp/

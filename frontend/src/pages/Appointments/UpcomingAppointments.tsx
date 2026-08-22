@@ -105,6 +105,7 @@ export const UpcomingAppointments: React.FC = () => {
       filterable: false,
       renderCell: (params) => {
         const appt = params.row as Appointment;
+        const targetPatientId = appt.patient || appt.patient_id;
         return (
           <Box sx={{ display: 'flex', gap: 1, height: '100%', alignItems: 'center' }}>
             <Button
@@ -112,7 +113,12 @@ export const UpcomingAppointments: React.FC = () => {
               variant="outlined"
               color="primary"
               startIcon={<ViewIcon />}
-              onClick={() => navigate(`/patients/${appt.patient}`)}
+              onClick={() => {
+                if (targetPatientId) {
+                  navigate(`/patients/${targetPatientId}`);
+                }
+              }}
+              disabled={!targetPatientId}
               sx={{ textTransform: 'none', fontWeight: 600 }}
               id={`view-patient-${appt.id}`}
             >

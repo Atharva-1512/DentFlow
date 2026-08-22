@@ -27,12 +27,14 @@ import {
   CalendarToday as CalendarIcon,
   EventNote as EventIcon,
   Schedule as ScheduleIcon,
-  CardMembership as SubscriptionIcon,
   AccountCircle as ProfileIcon,
   ExitToApp as LogoutIcon,
   AdminPanelSettings as AdminIcon,
   Domain as ClinicIcon,
   Settings as SettingsIcon,
+  ReceiptLong as AccountsIcon,
+  MonetizationOn as BillingIcon,
+  Science as LabWorkIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../context/AuthContext';
 
@@ -88,8 +90,10 @@ export const MainLayout: React.FC = () => {
       { text: "Today's Appointments", icon: <ScheduleIcon />, path: '/appointments/today' },
       { text: 'Upcoming Appointments', icon: <EventIcon />, path: '/appointments/upcoming' },
       { text: 'Calendar', icon: <CalendarIcon />, path: '/calendar' },
-      { text: 'Clinic Settings', icon: <SettingsIcon />, path: '/settings' },
-      { text: 'Subscription', icon: <SubscriptionIcon />, path: '/subscription' }
+      { text: 'Accounts', icon: <AccountsIcon />, path: '/accounts' },
+      { text: 'Billing', icon: <BillingIcon />, path: '/billing' },
+      { text: 'Lab Work', icon: <LabWorkIcon />, path: '/lab-work' },
+      { text: 'Clinic Settings', icon: <SettingsIcon />, path: '/settings' }
     );
   }
 
@@ -97,7 +101,6 @@ export const MainLayout: React.FC = () => {
   if (showAdminItems) {
     sidebarItems.push(
       { text: 'Clinics', icon: <ClinicIcon />, path: '/admin/clinics' },
-      { text: 'Subscriptions Overview', icon: <SubscriptionIcon />, path: '/admin/subscriptions' },
       { text: 'System Dashboard', icon: <AdminIcon />, path: '/admin/dashboard' }
     );
   }

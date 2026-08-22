@@ -1,13 +1,16 @@
 from rest_framework import serializers
-from .models import Patient
 
-class PatientSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Patient
-        fields = [
-            'id', 'patient_id', 'full_name', 'age', 'gender', 
-            'mobile_number', 'address', 'consulting_doctor_name', 
-            'chief_complaint', 'notes', 'created_date', 
-            'created_at', 'updated_at'
-        ]
-        read_only_fields = ['id', 'patient_id', 'created_at', 'updated_at']
+class PatientSerializer(serializers.Serializer):
+    id = serializers.CharField(read_only=True)
+    patient_id = serializers.CharField(read_only=True)
+    full_name = serializers.CharField(max_length=255)
+    age = serializers.IntegerField()
+    gender = serializers.CharField(max_length=5)
+    mobile_number = serializers.CharField(max_length=20)
+    address = serializers.CharField(required=False, allow_blank=True, default='')
+    consulting_doctor_name = serializers.CharField(required=False, allow_blank=True, default='')
+    chief_complaint = serializers.CharField(required=False, allow_blank=True, default='')
+    notes = serializers.CharField(required=False, allow_blank=True, default='')
+    created_date = serializers.CharField(read_only=True)
+    created_at = serializers.CharField(read_only=True)
+    updated_at = serializers.CharField(read_only=True)

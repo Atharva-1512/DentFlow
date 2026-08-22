@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Typography,
@@ -27,6 +27,7 @@ import {
   Tab,
   CircularProgress,
   InputAdornment,
+  Autocomplete,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -38,7 +39,7 @@ import {
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-import { useCreateBill, usePatients, usePatientTimeline, usePatientBills } from '../hooks/useApi';
+import { useCreateBill, usePatients, usePatientTimeline, usePatientBills, usePatient } from '../hooks/useApi';
 import { useAuth } from '../context/AuthContext';
 import { toastRef } from '../context/ToastContext';
 import type { BillTreatment, BillPayment, Bill } from '../types';
@@ -92,6 +93,15 @@ export const QuickBill: React.FC = () => {
   const [openHistoryDialog, setOpenHistoryDialog] = useState(false);
   const [historyTab, setHistoryTab] = useState(0);
 
+  // Fetch URL query params for patient_id pre-selection
+  const [searchParams] = useSearchParams();
+  const urlPatientId = searchParams.get('patient_id');
+  const { data: urlPatient } = usePatient(urlPatientId || '');
+
+  // Query to fetch all registered patients for dropdown selection
+  const { data: allPatientsData } = usePatients('', 0);
+  const allPatients = allPatientsData?.results || [];
+
   // Query to find matched patient profile in DB
   const searchQuery = patientMobile.trim() || patientName.trim();
   const { data: matchedPatientsData } = usePatients(searchQuery, 0);
@@ -132,6 +142,22 @@ export const QuickBill: React.FC = () => {
   useEffect(() => {
     setClinicContact(defaultContact);
   }, [defaultContact]);
+
+  // Auto-fill fields if patient_id is provided in URL query string
+  useEffect(() => {
+    if (urlPatient) {
+      setPatientName(urlPatient.full_name);
+      setPatientMobile(urlPatient.mobile_number);
+      const ageVal = urlPatient.date_of_birth
+        ? String(Math.floor((Date.now() - new Date(urlPatient.date_of_birth).getTime()) / (1000 * 60 * 60 * 24 * 365)))
+        : String(urlPatient.age || '');
+      setPatientAge(ageVal);
+      setPatientGender(urlPatient.gender || 'M');
+      if (urlPatient.consulting_doctor_name) {
+        setDoctorName(cleanDoctorName(urlPatient.consulting_doctor_name));
+      }
+    }
+  }, [urlPatient]);
 
 
 
@@ -445,33 +471,65 @@ export const QuickBill: React.FC = () => {
 
             <Grid container spacing={2}>
               <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  fullWidth
-                  label="Patient Name"
-                  value={patientName}
-                  onChange={(e) => {
-                    setPatientName(e.target.value);
+                <Autocomplete
+                  options={allPatients}
+                  getOptionLabel={(option) => {
+                    if (typeof option === 'string') return option;
+                    return `${option.full_name} (${option.mobile_number}) ${option.patient_id ? `[${option.patient_id}]` : ''}`;
+                  }}
+                  value={allPatients.find(p => p.full_name.toLowerCase() === patientName.trim().toLowerCase()) || null}
+                  onChange={(_event, newValue) => {
+                    if (newValue && typeof newValue !== 'string') {
+                      setPatientName(newValue.full_name);
+                      setPatientMobile(newValue.mobile_number);
+                      const ageVal = newValue.date_of_birth
+                        ? String(Math.floor((Date.now() - new Date(newValue.date_of_birth).getTime()) / (1000 * 60 * 60 * 24 * 365)))
+                        : String(newValue.age || '');
+                      setPatientAge(ageVal);
+                      setPatientGender(newValue.gender || 'M');
+                      if (newValue.consulting_doctor_name) {
+                        setDoctorName(cleanDoctorName(newValue.consulting_doctor_name));
+                      }
+                    }
                     setIsSaved(false);
                     setSavedBillNumber(null);
                     setSavedPatientId(null);
                   }}
-                  required
-                  slotProps={{
-                    input: {
-                      endAdornment: matchedPatient ? (
-                        <Button
-                          size="small"
-                          variant="contained"
-                          color="primary"
-                          onClick={() => setOpenHistoryDialog(true)}
-                          sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.75rem', px: 1.5, py: 0.5, mr: -1 }}
-                        >
-                          View History
-                        </Button>
-                      ) : null
-                    }
+                  freeSolo
+                  onInputChange={(_event, newInputValue) => {
+                    setPatientName(newInputValue);
+                    setIsSaved(false);
+                    setSavedBillNumber(null);
+                    setSavedPatientId(null);
                   }}
-                  helperText={matchedPatient ? "Profile found in registry. Click 'View History' to see past records & invoices." : ""}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Select or Enter Patient Name"
+                      placeholder="Select existing patient or type name..."
+                      required
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {params.InputProps?.endAdornment}
+                            {matchedPatient ? (
+                              <Button
+                                size="small"
+                                variant="contained"
+                                color="primary"
+                                onClick={() => setOpenHistoryDialog(true)}
+                                sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.75rem', px: 1.5, py: 0.5, mr: -1 }}
+                              >
+                                View History
+                              </Button>
+                            ) : null}
+                          </>
+                        ),
+                      }}
+                      helperText={matchedPatient ? "Profile found in registry. Click 'View History' to see past records & invoices." : "Select from past patient records or type a new name."}
+                    />
+                  )}
                 />
               </Grid>
 

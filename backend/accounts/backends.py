@@ -1,25 +1,26 @@
-from django.contrib.auth import get_user_model
 from django.contrib.auth.backends import ModelBackend
-from django.db.models import Q
+from core.mongodb import get_user_by_email_or_username
+from django.contrib.auth.hashers import check_password
 
 class EmailOrUsernameModelBackend(ModelBackend):
     """
     Custom authentication backend to allow logging in using either
-    the username or the email address.
+    the username or the email address, querying MongoDB.
     """
     def authenticate(self, request, username=None, password=None, **kwargs):
-        UserModel = get_user_model()
         if username is None:
-            username = kwargs.get(UserModel.USERNAME_FIELD)
+            username = kwargs.get('email') or kwargs.get('username')
         
-        try:
-            # Support case-insensitive lookup for both username and email
-            user = UserModel.objects.get(Q(username__iexact=username) | Q(email__iexact=username))
-        except UserModel.DoesNotExist:
-            # Run set_password to simulate authentication latency and mitigate timing attacks
-            UserModel().set_password(password)
+        if not username:
+            return None
+            
+        user = get_user_by_email_or_username(username)
+        if not user:
             return None
         
-        if user.check_password(password) and self.user_can_authenticate(user):
+        if check_password(password, user.doc.get('password')) and self.user_can_authenticate(user):
             return user
         return None
+
+    def user_can_authenticate(self, user):
+        return user.is_active

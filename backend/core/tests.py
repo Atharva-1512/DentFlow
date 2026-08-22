@@ -25,6 +25,30 @@ from core.permissions import SubscriptionAccessPermission, TenantIsolationPermis
 
 User = get_user_model()
 
+# Monkey-patch TestCase.run to automatically sync SQLite data to MongoDB after subclass setUp runs
+original_run = TestCase.run
+
+def custom_run(self, result=None):
+    from core.tests_sync import register_test_signals
+    try:
+        register_test_signals()
+    except Exception as e:
+        print(f"Error registering test signals: {e}")
+
+    if hasattr(self, 'setUp'):
+        inst_setup = self.setUp
+        def wrapped_setup(*args, **kwargs):
+            inst_setup(*args, **kwargs)
+            from core.tests_sync import sync_sql_to_mongodb
+            try:
+                sync_sql_to_mongodb()
+            except Exception as e:
+                print(f"Error syncing SQLite to MongoDB: {e}")
+        self.setUp = wrapped_setup
+    return original_run(self, result)
+
+TestCase.run = custom_run
+
 # A mock API view to test permissions in action
 class MockProtectedAPIView(APIView):
     permission_classes = [TenantIsolationPermission, SubscriptionAccessPermission]

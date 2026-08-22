@@ -100,14 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userRes = await api.get('/accounts/me/');
       const userData = userRes.data as User;
       setUser(userData);
-
-      // Load subscription context (if role is clinic owner and has clinic)
-      if (userData.role === 'CLINIC_OWNER' && userData.clinic) {
-        const subRes = await api.get('/subscriptions/current/');
-        setSubscription(subRes.data);
-      } else {
-        setSubscription(null);
-      }
+      setSubscription(null);
 
       toastRef.show('Logged in successfully.', 'success');
     } catch (error: any) {
@@ -166,12 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const userRes = await api.get('/accounts/me/');
           const userData = userRes.data as User;
           setUser(userData);
-
-          // 2. Fetch subscription context
-          if (userData.role === 'CLINIC_OWNER' && userData.clinic) {
-            const subRes = await api.get('/subscriptions/current/');
-            setSubscription(subRes.data);
-          }
+          setSubscription(null);
         } catch (err) {
           console.error('Failed to initialize session on boot', err);
           setUser(null);

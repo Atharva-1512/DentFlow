@@ -2,13 +2,9 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny, BasePermission
 from rest_framework import status
-from django.db import transaction
 from django.utils import timezone
 from django.conf import settings
 from .serializers import UserSerializer, ClinicSerializer, ClinicRegistrationSerializer, ClinicUpdateSerializer
-from clinics.models import Clinic
-from accounts.models import UserRole
-from subscriptions.models import SubscriptionPlan, ClinicSubscription, SubscriptionStatus
 
 class MeView(APIView):
     """
@@ -22,8 +18,9 @@ class MeView(APIView):
         data = serializer.data
         
         # If user is Super Admin, supply listings of all clinics
-        if request.user.role == UserRole.SUPER_ADMIN:
-            clinics = Clinic.objects.all()
+        if request.user.role == 'SUPER_ADMIN':
+            from core.mongodb import get_all_clinics
+            clinics = get_all_clinics()
             data['all_clinics'] = ClinicSerializer(clinics, many=True).data
             
         return Response(data)
@@ -49,14 +46,19 @@ class ClinicProfileView(APIView):
             return Response({"detail": "No clinic associated with your account."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Only CLINIC_OWNER can update their clinic
-        if request.user.role != UserRole.CLINIC_OWNER:
+        if request.user.role != 'CLINIC_OWNER':
             return Response({"detail": "Only clinic owners can update clinic settings."}, status=status.HTTP_403_FORBIDDEN)
 
-        serializer = ClinicUpdateSerializer(clinic, data=request.data, partial=True)
+        serializer = ClinicUpdateSerializer(data=request.data, partial=True)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        serializer.save()
-        return Response(ClinicSerializer(clinic).data)
+        
+        from core.mongodb import update_clinic
+        updated_clinic = update_clinic(request.user.id, serializer.validated_data)
+        if not updated_clinic:
+            return Response({"detail": "Failed to update clinic."}, status=status.HTTP_400_BAD_REQUEST)
+            
+        return Response(ClinicSerializer(updated_clinic).data)
 
 
 class RegisterView(APIView):
@@ -74,59 +76,28 @@ class RegisterView(APIView):
         validated_data = serializer.validated_data
         
         try:
-            with transaction.atomic():
-                # 1. Create the Clinic
-                clinic = Clinic.objects.create(
-                    name=validated_data['clinic_name'],
-                    notification_whatsapp_number=validated_data['mobile_number'],
-                    address=validated_data.get('clinic_address', ''),
-                    is_active=True
-                )
-                
-                # 2. Create the Clinic Owner user
-                from accounts.models import User
-                user = User.objects.create_user(
-                    username=validated_data['username'],
-                    email=validated_data['email'],
-                    password=validated_data['password'],
-                    role=UserRole.CLINIC_OWNER,
-                    clinic=clinic
-                )
-                
-                # 3. Seed starter plan if it doesn't exist, and assign subscription
-                plan, _ = SubscriptionPlan.objects.get_or_create(
-                    code='starter',
-                    defaults={
-                        'name': 'Starter Plan (Monthly)',
-                        'price': 199.00,
-                        'billing_cycle': 'monthly',
-                        'is_active': True
-                    }
-                )
-                
-                # Create subscription with status according to settings.TRIAL_ENABLED
-                if getattr(settings, 'TRIAL_ENABLED', True):
-                    status_val = SubscriptionStatus.TRIAL
-                    trial_start = timezone.now().date()
-                    trial_end = timezone.now() + timezone.timedelta(days=getattr(settings, 'TRIAL_DAYS', 30))
-                else:
-                    status_val = SubscriptionStatus.PAYMENT_DUE
-                    trial_start = None
-                    trial_end = None
-
-                ClinicSubscription.objects.create(
-                    clinic=clinic,
-                    plan=plan,
-                    status=status_val,
-                    trial_start_date=trial_start,
-                    trial_end_date=trial_end
-                )
-                
-                user_serializer = UserSerializer(user)
-                return Response({
-                    "user": user_serializer.data,
-                    "detail": "Clinic and Owner registered successfully."
-                }, status=status.HTTP_201_CREATED)
+            from core.mongodb import create_user
+            user = create_user(
+                email=validated_data['email'],
+                username=validated_data['username'],
+                password=validated_data['password'],
+                role='CLINIC_OWNER',
+                clinic_name=validated_data['clinic_name'],
+                mobile_number=validated_data['mobile_number'],
+                address=validated_data.get('clinic_address', ''),
+                dci_number=validated_data.get('dci_number', ''),
+                gst_number=validated_data.get('gst_number', ''),
+                invoice_prefix=validated_data.get('invoice_prefix', 'DF-2026/'),
+                tax_rate=validated_data.get('tax_rate', 0),
+                slot_duration=validated_data.get('slot_duration', 30),
+                opening_time=validated_data.get('opening_time', '09:00'),
+                closing_time=validated_data.get('closing_time', '20:00')
+            )
+            user_serializer = UserSerializer(user)
+            return Response({
+                "user": user_serializer.data,
+                "detail": "Clinic and Owner registered successfully."
+            }, status=status.HTTP_201_CREATED)
                 
         except Exception as e:
             return Response(
@@ -140,7 +111,7 @@ class IsSuperAdmin(BasePermission):
     Permission class that only allows SUPER_ADMIN users.
     """
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.role == UserRole.SUPER_ADMIN
+        return request.user and request.user.is_authenticated and request.user.role == 'SUPER_ADMIN'
 
 
 class AdminClinicListView(APIView):
@@ -153,7 +124,8 @@ class AdminClinicListView(APIView):
     permission_classes = [IsAuthenticated, IsSuperAdmin]
 
     def get(self, request):
-        clinics = Clinic.objects.all()
+        from core.mongodb import get_all_clinics
+        clinics = get_all_clinics()
         serializer = ClinicSerializer(clinics, many=True)
         return Response(serializer.data)
 
@@ -165,55 +137,17 @@ class AdminClinicListView(APIView):
         validated_data = serializer.validated_data
         
         try:
-            with transaction.atomic():
-                # 1. Create the Clinic
-                clinic = Clinic.objects.create(
-                    name=validated_data['clinic_name'],
-                    notification_whatsapp_number=validated_data['mobile_number'],
-                    address=validated_data.get('clinic_address', ''),
-                    is_active=True
-                )
-                
-                # 2. Create the Clinic Owner user
-                from accounts.models import User
-                user = User.objects.create_user(
-                    username=validated_data['username'],
-                    email=validated_data['email'],
-                    password=validated_data['password'],
-                    role=UserRole.CLINIC_OWNER,
-                    clinic=clinic
-                )
-                
-                # 3. Seed starter plan if it doesn't exist, and assign subscription
-                plan, _ = SubscriptionPlan.objects.get_or_create(
-                    code='starter',
-                    defaults={
-                        'name': 'Starter Plan (Monthly)',
-                        'price': 199.00,
-                        'billing_cycle': 'monthly',
-                        'is_active': True
-                    }
-                )
-                
-                # Create subscription with status according to settings.TRIAL_ENABLED
-                if getattr(settings, 'TRIAL_ENABLED', True):
-                    status_val = SubscriptionStatus.TRIAL
-                    trial_start = timezone.now().date()
-                    trial_end = timezone.now() + timezone.timedelta(days=getattr(settings, 'TRIAL_DAYS', 30))
-                else:
-                    status_val = SubscriptionStatus.PAYMENT_DUE
-                    trial_start = None
-                    trial_end = None
-
-                ClinicSubscription.objects.create(
-                    clinic=clinic,
-                    plan=plan,
-                    status=status_val,
-                    trial_start_date=trial_start,
-                    trial_end_date=trial_end
-                )
-                
-                return Response(ClinicSerializer(clinic).data, status=status.HTTP_201_CREATED)
+            from core.mongodb import create_user
+            user = create_user(
+                email=validated_data['email'],
+                username=validated_data['username'],
+                password=validated_data['password'],
+                role='CLINIC_OWNER',
+                clinic_name=validated_data['clinic_name'],
+                mobile_number=validated_data['mobile_number'],
+                address=validated_data.get('clinic_address', '')
+            )
+            return Response(ClinicSerializer(user.clinic).data, status=status.HTTP_201_CREATED)
                 
         except Exception as e:
             return Response(
@@ -231,25 +165,23 @@ class AdminClinicDetailView(APIView):
     permission_classes = [IsAuthenticated, IsSuperAdmin]
 
     def patch(self, request, pk):
-        try:
-            clinic = Clinic.objects.get(pk=pk)
-        except Clinic.DoesNotExist:
-            return Response({"detail": "Clinic not found."}, status=status.HTTP_404_NOT_FOUND)
-        
         is_active = request.data.get('is_active', None)
         if is_active is not None:
-            clinic.is_active = bool(is_active)
-            clinic.save(update_fields=['is_active'])
+            from core.mongodb import update_clinic_status
+            clinic = update_clinic_status(str(pk), bool(is_active))
+            if not clinic:
+                return Response({"detail": "Clinic not found."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(ClinicSerializer(clinic).data)
             
-        serializer = ClinicSerializer(clinic)
-        return Response(serializer.data)
+        from core.mongodb import get_user_by_clinic_id
+        user = get_user_by_clinic_id(str(pk))
+        if not user or not user.clinic:
+            return Response({"detail": "Clinic not found."}, status=status.HTTP_404_NOT_FOUND)
+        return Response(ClinicSerializer(user.clinic).data)
 
     def delete(self, request, pk):
-        try:
-            clinic = Clinic.objects.get(pk=pk)
-        except Clinic.DoesNotExist:
+        from core.mongodb import delete_clinic_user
+        success = delete_clinic_user(str(pk))
+        if not success:
             return Response({"detail": "Clinic not found."}, status=status.HTTP_404_NOT_FOUND)
-        
-        clinic.delete()
         return Response({"detail": "Clinic deleted successfully."}, status=status.HTTP_204_NO_CONTENT)
-
