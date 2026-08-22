@@ -1,18 +1,148 @@
-html,
-body,
-#root {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  min-height: 100vh;
-  box-sizing: border-box;
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-teal: #a9794e;
+  --color-cyan: #cfa15f;
+  --color-slate-950: #352217;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  background-color: #F8FAFC;
-  color: #0F172A;
+  font-family: 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+}
+::-webkit-scrollbar-track {
+  background: #f6f0e7;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #a9794e, #cfa15f);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #8d613e, #b78645);
+}
+
+/* Glassmorphism utilities */
+@layer components {
+  .glass {
+    @apply bg-white/70 backdrop-blur-md border border-white/40;
+  }
+  .glass-dark {
+    @apply bg-stone-900/85 backdrop-blur-md border border-white/10;
+  }
+  .glass-card {
+    @apply bg-white/60 backdrop-blur-xl border border-white/50 shadow-card;
+  }
+  .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-teal-700 via-teal-600 to-cyan-600;
+  }
+  .gradient-text-cyan {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-teal-700 to-cyan-500;
+  }
+  .btn-primary {
+    @apply relative overflow-hidden bg-gradient-to-r from-teal-600 to-cyan-500 text-white font-semibold rounded-xl px-6 py-3 shadow-glow-teal transition-all duration-300 hover:shadow-glow hover:scale-[1.03] active:scale-95;
+  }
+  .btn-secondary {
+    @apply glass text-slate-800 font-semibold rounded-xl px-6 py-3 transition-all duration-300 hover:bg-white/90 hover:shadow-card border-slate-200;
+  }
+  .btn-ghost {
+    @apply text-slate-700 font-medium px-4 py-2 rounded-lg transition-all duration-200 hover:bg-slate-100 hover:text-teal-600;
+  }
+  .section-padding {
+    @apply px-5 sm:px-8 lg:px-12 xl:px-20;
+  }
+  .badge-glow {
+    @apply inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold;
+  }
+}
+
+/* Mesh gradient background animation */
+.mesh-bg {
+  background-size: 200% 200%;
+  animation: gradient-x 15s ease infinite;
+}
+
+/* Shine effect on hover */
+.shine {
+  position: relative;
+  overflow: hidden;
+}
+.shine::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.25),
+    transparent
+  );
+  transition: left 0.6s ease;
+}
+.shine:hover::after {
+  left: 100%;
+}
+
+/* Mouse tilt perspective */
+.tilt-container {
+  perspective: 1000px;
+}
+.tilt-card {
+  transition: transform 0.2s ease-out;
+  transform-style: preserve-3d;
+}
+
+/* Grid pattern overlay */
+.grid-pattern {
+  background-image:
+    linear-gradient(rgba(169, 121, 78, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(169, 121, 78, 0.07) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Glow ring */
+.glow-ring {
+  box-shadow: 0 0 0 2px rgba(207, 161, 95, 0.3), 0 0 40px rgba(207, 161, 95, 0.2);
+}
+
+/* Number tabular */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Hide scrollbar for tabs */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Tooltip hotspot */
+.hotspot {
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #a9794e, #cfa15f);
+  cursor: pointer;
+  box-shadow: 0 0 0 4px rgba(169, 121, 78, 0.25), 0 0 20px rgba(207, 161, 95, 0.4);
+  animation: pulse-ring 2.5s ease-out infinite;
 }

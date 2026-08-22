@@ -5,6 +5,8 @@ import AuthLayout from '../layouts/AuthLayout';
 import { AuthGuard, RoleGuard } from './guards';
 import { Typography, Card, Container, Box, CircularProgress } from '@mui/material';
 
+import LandingPage from '../pages/Landing/LandingPage';
+
 // Import real page components
 import Login from '../pages/Login';
 import Register from '../pages/Register';
@@ -38,6 +40,10 @@ const ProfilePlaceholder = () => (
 export const AppRoutes: React.FC = () => {
   return (
     <Routes>
+      {/* Public SaaS Landing Page */}
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/home" element={<LandingPage />} />
+
       {/* Public / Guest Routes */}
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<Login />} />
@@ -47,9 +53,6 @@ export const AppRoutes: React.FC = () => {
       {/* Protected Routes Wrapper */}
       <Route element={<AuthGuard />}>
         <Route element={<MainLayout />}>
-          {/* Default Route */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          
           {/* Common Dashboard (Role-specific view handled inside component) */}
           <Route path="/dashboard" element={<Dashboard />} />
           
