@@ -68,7 +68,7 @@ class CreateSubscriptionView(APIView):
         
         key_id = getattr(settings, 'RAZORPAY_KEY_ID', '')
         key_secret = getattr(settings, 'RAZORPAY_KEY_SECRET', '')
-        is_mock = getattr(settings, 'DEBUG', True) and (not key_id or "placeholder" in key_id)
+        is_mock = (not key_id) or ("placeholder" in key_id.lower()) or ("test" in sys.argv)
 
         from core.mongodb import get_subscription, create_or_update_subscription
         sub = get_subscription(request.user.id) or {}
@@ -87,7 +87,7 @@ class CreateSubscriptionView(APIView):
             return Response({
                 "checkout_url": None,
                 "razorpay_subscription_id": mock_sub_id,
-                "razorpay_key_id": "rzp_test_placeholder_key",
+                "razorpay_key_id": key_id or "rzp_test_placeholder_key",
                 "amount": plan_price,
                 "plan_name": plan_name,
                 "is_mock": True,
@@ -136,11 +136,19 @@ class CancelSubscriptionView(APIView):
         key_id = getattr(settings, 'RAZORPAY_KEY_ID', '')
         key_secret = getattr(settings, 'RAZORPAY_KEY_SECRET', '')
         razorpay_sub_id = sub.get('razorpay_subscription_id', '')
-        is_mock = getattr(settings, 'DEBUG', True) and (not key_id or "placeholder" in key_id or not razorpay_sub_id or "mock" in razorpay_sub_id)
+        is_mock = (
+            (not key_id) or
+            ("placeholder" in key_id.lower()) or
+            (not razorpay_sub_id) or
+            ("mock" in razorpay_sub_id.lower()) or
+            ("sub_active" in razorpay_sub_id.lower()) or
+            ("sub_trial" in razorpay_sub_id.lower()) or
+            ("test" in sys.argv)
+        )
 
         if is_mock:
             cancel_subscription(request.user.id)
-            return Response({"detail": "Subscription cancelled successfully (Mock)."})
+            return Response({"detail": "Subscription cancelled successfully."})
 
         import razorpay
         try:

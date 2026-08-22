@@ -425,6 +425,7 @@ def get_patients(user_id, search_query=None, page=1, page_size=20):
             p for p in patients
             if q in p.get("full_name", "").lower() or
                q in p.get("mobile_number", "").lower() or
+               q in p.get("patient_id", "").lower() or
                q in p.get("consulting_doctor_name", "").lower()
         ]
 
@@ -484,9 +485,13 @@ def create_patient(user_id, patient_data):
         "age": int(patient_data["age"]),
         "gender": patient_data.get("gender", "M"),
         "mobile_number": patient_data["mobile_number"],
+        "email": patient_data.get("email", ""),
         "address": patient_data.get("address", ""),
         "consulting_doctor_name": patient_data.get("consulting_doctor_name", ""),
         "chief_complaint": patient_data.get("chief_complaint", ""),
+        "medical_history": patient_data.get("medical_history", []),
+        "allergies": patient_data.get("allergies", ""),
+        "blood_group": patient_data.get("blood_group", ""),
         "notes": patient_data.get("notes", ""),
         "created_date": to_iso(timezone.now().date()),
         "created_at": to_iso(timezone.now()),
@@ -520,7 +525,7 @@ def update_patient(user_id, patient_id, patient_data):
         return None
 
     patient = patients[target_idx]
-    for key in ['full_name', 'age', 'gender', 'mobile_number', 'address', 'consulting_doctor_name', 'chief_complaint', 'notes']:
+    for key in ['full_name', 'age', 'gender', 'mobile_number', 'email', 'address', 'consulting_doctor_name', 'chief_complaint', 'medical_history', 'allergies', 'blood_group', 'notes']:
         if key in patient_data:
             if key == 'age':
                 patient[key] = int(patient_data[key])
@@ -652,10 +657,12 @@ def create_unified_visit(user_id, patient_data, visit_data, appointment_data):
         "id": visit_id,
         "visit_date": to_iso(visit_data.get("visit_date", timezone.now())),
         "consulting_doctor": visit_data["consulting_doctor"],
+        "chief_complaint": visit_data.get("chief_complaint", ""),
         "diagnosis": visit_data["diagnosis"],
         "treatment_given": visit_data["treatment_given"],
+        "prescriptions": visit_data.get("prescriptions", []),
         "prescription_notes": visit_data.get("prescription_notes", ""),
-        "general_notes": visit_data.get("general_notes", ""),
+        "general_notes": visit_data.get("general_notes", visit_data.get("notes", "")),
         "status": "COMPLETED",
         "is_deleted": False,
         "created_at": to_iso(timezone.now()),
@@ -830,7 +837,7 @@ def create_bill(user_id, bill_data):
     if not user:
         return None
 
-    patient_id = bill_data.get("patient")
+    patient_id = bill_data.get("patient") or bill_data.get("patient_id")
     patient = None
     if patient_id:
         patient = get_patient_by_id(user_id, patient_id)
@@ -856,7 +863,9 @@ def create_bill(user_id, bill_data):
             })
             patient = get_patient_by_id(user_id, patient["id"])
 
-    # Generate sequential invoice number (INV-00001)
+    # Generate sequential invoice number with clinic prefix (e.g. SC-2026/00001 or INV-00001)
+    clinic = user.get("clinic") or {}
+    invoice_prefix = clinic.get("invoice_prefix") or "INV-"
     max_inv_num = 0
     for p in user.get("patients", []):
         for b in p.get("bills", []):
@@ -867,12 +876,7 @@ def create_bill(user_id, bill_data):
                 if num > max_inv_num:
                     max_inv_num = num
 
-    next_bill_number = f"INV-{(max_inv_num + 1):05d}"
-
-    # Calculate outstanding balance
-    grand_total = float(bill_data.get("grand_total", 0.0))
-    amount_paid = float(bill_data.get("amount_paid", 0.0))
-    outstanding = grand_total - amount_paid
+    next_bill_number = f"{invoice_prefix}{(max_inv_num + 1):05d}"
 
     # Process nested treatments & payments
     treatments = []
@@ -894,24 +898,50 @@ def create_bill(user_id, bill_data):
             "payment_mode": p_pay.get("payment_mode", "UPI")
         })
 
+    # Calculate financial totals
+    treatments_sum = sum(float(t["cost"]) * int(t.get("quantity", 1)) for t in treatments)
+    discount = float(bill_data.get("discount", 0.0))
+    tax_rate = float(bill_data.get("tax_rate", 0.0))
+    subtotal = max(0.0, treatments_sum - discount)
+    tax_amount = subtotal * (tax_rate / 100.0)
+    calc_grand_total = subtotal + tax_amount
+
+    grand_total = float(bill_data.get("grand_total", bill_data.get("total_amount", bill_data.get("total_cost", calc_grand_total))))
+    amount_paid = float(bill_data.get("amount_paid", sum(p["amount_paid"] for p in payments)))
+    outstanding = max(0.0, grand_total - amount_paid)
+
+    status = bill_data.get("status")
+    if not status:
+        if amount_paid >= grand_total and grand_total > 0:
+            status = "PAID"
+        elif amount_paid > 0:
+            status = "PARTIAL"
+        else:
+            status = "UNPAID"
+
     bill = {
         "id": gen_uuid(),
         "patient": patient["id"],
-        "patient_id": patient["patient_id"],
+        "patient_id": patient.get("patient_id", patient["id"]),
         "patient_name": patient["full_name"],
         "patient_mobile": patient["mobile_number"],
         "patient_age": str(patient["age"]),
         "patient_gender": patient["gender"],
         "bill_number": next_bill_number,
         "bill_date": bill_data.get("bill_date", to_iso(timezone.now().date())),
-        "doctor_name": bill_data["doctor_name"],
-        "total_cost": float(bill_data.get("total_cost", grand_total)),
+        "doctor_name": bill_data.get("doctor_name", ""),
+        "total_cost": treatments_sum,
+        "discount": discount,
+        "tax_rate": tax_rate,
+        "tax_amount": tax_amount,
         "grand_total": grand_total,
+        "total_amount": grand_total,
         "amount_paid": amount_paid,
         "outstanding_balance": outstanding,
-        "status": bill_data.get("status", "UNPAID"),
-        "clinic_address": bill_data.get("clinic_address", ""),
-        "clinic_contact": bill_data.get("clinic_contact", ""),
+        "balance": outstanding,
+        "status": status,
+        "clinic_address": bill_data.get("clinic_address", clinic.get("address", "")),
+        "clinic_contact": bill_data.get("clinic_contact", clinic.get("notification_whatsapp_number", "")),
         "treatments": treatments,
         "payments": payments,
         "created_at": to_iso(timezone.now()),
@@ -990,6 +1020,22 @@ def update_bill(user_id, bill_id, bill_data):
                 "payment_mode": p_pay.get("payment_mode", "UPI")
             })
         bill["payments"] = payments
+        bill["amount_paid"] = sum(p["amount_paid"] for p in payments)
+
+    grand_total = float(bill.get("grand_total", bill.get("total_amount", 0.0)))
+    amount_paid = float(bill.get("amount_paid", 0.0))
+    outstanding = max(0.0, grand_total - amount_paid)
+    bill["outstanding_balance"] = outstanding
+    bill["balance"] = outstanding
+    bill["total_amount"] = grand_total
+
+    if "status" not in bill_data:
+        if amount_paid >= grand_total and grand_total > 0:
+            bill["status"] = "PAID"
+        elif amount_paid > 0:
+            bill["status"] = "PARTIAL"
+        else:
+            bill["status"] = "UNPAID"
 
     bill["updated_at"] = to_iso(timezone.now())
     patients[found_patient_idx]["bills"][found_bill_idx] = bill
@@ -1072,7 +1118,7 @@ def create_appointment(user_id, appt_data):
     if not user:
         return None
 
-    patient_id = appt_data["patient"]
+    patient_id = appt_data.get("patient") or appt_data.get("patient_id")
     patient = get_patient_by_id(user_id, patient_id)
     if not patient:
         return None
