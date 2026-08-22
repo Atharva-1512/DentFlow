@@ -219,3 +219,8 @@ WHATSAPP_SERVICE_SECRET = os.getenv('WHATSAPP_SERVICE_SECRET', 'changeme')
 
 # Cron secret for securing the cron trigger endpoint
 CRON_SECRET = os.getenv('CRON_SECRET', '')
+
+# MongoDB configuration
+MONGO_URI = os.getenv('MONGO_URI', os.getenv('MONGODB_URI', 'mongodb://localhost:27017/'))
+MONGO_DB_NAME = os.getenv('MONGO_DB_NAME', os.getenv('MONGODB_NAME', 'dentflow'))
+

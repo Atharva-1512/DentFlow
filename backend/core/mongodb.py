@@ -16,14 +16,14 @@ db_name = "dentflow_test" if "test" in sys.argv else MONGO_DB_NAME
 
 is_mock = False
 try:
-    client = MongoClient(MONGO_URI, uuidRepresentation='standard', serverSelectionTimeoutMS=1500)
+    client = MongoClient(MONGO_URI, uuidRepresentation='standard', serverSelectionTimeoutMS=5000)
     client.admin.command('ping')
-except Exception:
+except Exception as e:
     try:
         import mongomock
         client = mongomock.MongoClient()
         is_mock = True
-        print("[DentFlow] Local MongoDB not reachable. Active storage: mongomock JSON-persisted engine.")
+        print(f"[DentFlow] MongoDB not reachable ({e}). Active storage: mongomock JSON-persisted engine.")
     except ImportError:
         client = MongoClient(MONGO_URI, uuidRepresentation='standard')
 
