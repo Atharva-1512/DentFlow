@@ -1,18 +1,14 @@
 """
 Management command: dispatch_reminders
-Generates and dispatches pending WhatsApp appointment reminders.
+Generates and dispatches pending WhatsApp appointment reminders from the DentFlow centralized number.
 
 Usage:
-  python manage.py dispatch_reminders --slot morning   # 7 AM IST — SAME_DAY
-  python manage.py dispatch_reminders --slot evening   # 7 PM IST — DAY_BEFORE
-
-This command replaces the old cron_daily_reminders, generate_reminders,
-and send_reminders commands. All messages are sent from each clinic's own
-connected WhatsApp account via the Node.js whatsapp-service microservice.
-
-Clinics without an active WhatsApp session will have their reminders SKIPPED.
+  python manage.py dispatch_reminders --slot evening    # 7 PM IST — generates tomorrow's patient 3-hr queue & sends clinic summary
+  python manage.py dispatch_reminders --slot dispatch   # Periodic — dispatches all pending 3-hr reminders due now
+  python manage.py dispatch_reminders --slot morning    # 7 AM IST — refreshes today's patient queue
 """
 
+import datetime
 import logging
 from django.core.management.base import BaseCommand
 from django.utils import timezone
@@ -27,15 +23,15 @@ logger = logging.getLogger('dentflow.notifications')
 
 
 class Command(BaseCommand):
-    help = 'Generate and dispatch WhatsApp appointment reminders for a given slot'
+    help = 'Generate and dispatch WhatsApp appointment reminders from DentFlow centralized sender'
 
     def add_arguments(self, parser):
         parser.add_argument(
             '--slot',
             type=str,
-            choices=['morning', 'evening'],
-            required=True,
-            help='morning = 7 AM IST (same-day reminders), evening = 7 PM IST (day-before preview)',
+            choices=['evening', 'morning', 'dispatch', 'all'],
+            default='dispatch',
+            help='evening = 7 PM IST (summary + tomorrow queue), dispatch = send due 3-hr reminders, morning = 7 AM queue refresh',
         )
 
     def handle(self, *args, **options):
@@ -43,21 +39,24 @@ class Command(BaseCommand):
         target_date = timezone.localtime(timezone.now()).date()
 
         self.stdout.write(self.style.NOTICE(
-            f"[dispatch_reminders] Starting slot={slot} for date={target_date}"
+            f"[dispatch_reminders] Executing slot={slot} for date={target_date}"
         ))
 
         created = {}
-        if slot == 'morning':
-            created['patient_reminders'] = generate_patient_reminders(target_date)
-            created['clinic_same_day'] = generate_clinic_summaries(target_date, is_previous_day=False)
-        else:  # evening
-            created['clinic_prev_day'] = generate_clinic_summaries(target_date, is_previous_day=True)
+        if slot in ('evening', 'all'):
+            tomorrow = target_date + datetime.timedelta(days=1)
+            created['tomorrow_patient_3hr'] = generate_patient_reminders(tomorrow)
+            created['clinic_evening_summary'] = generate_clinic_summaries(target_date, is_previous_day=True)
+        elif slot == 'morning':
+            created['today_patient_3hr'] = generate_patient_reminders(target_date)
 
-        self.stdout.write(f"Created reminders: {created}")
+        if created:
+            self.stdout.write(f"Generated reminders: {created}")
 
         dispatched = dispatch_pending_reminders()
         self.stdout.write(self.style.SUCCESS(
-            f"Dispatched: sent={dispatched['sent']} "
-            f"skipped={dispatched['skipped']} "
-            f"failed={dispatched['failed']}"
+            f"Dispatched: sent={dispatched.get('sent', 0)} "
+            f"skipped={dispatched.get('skipped', 0)} "
+            f"failed={dispatched.get('failed', 0)}"
         ))
+

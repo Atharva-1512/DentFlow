@@ -10,6 +10,8 @@ class RecipientType(models.TextChoices):
 
 
 class NotificationType(models.TextChoices):
+    PATIENT_REMINDER_3HR = 'PATIENT_REMINDER_3HR', 'Patient 3-Hour Reminder'
+    CLINIC_TOMORROW_SUMMARY = 'CLINIC_TOMORROW_SUMMARY', 'Clinic Tomorrow Summary (7 PM IST)'
     PATIENT_SAME_DAY = 'PATIENT_SAME_DAY', 'Patient Same Day Reminder'
     CLINIC_PREV_DAY = 'CLINIC_PREV_DAY', 'Clinic Previous Day Summary'
     CLINIC_SAME_DAY = 'CLINIC_SAME_DAY', 'Clinic Same Day Summary'
@@ -17,6 +19,7 @@ class NotificationType(models.TextChoices):
 
 class ReminderSlot(models.TextChoices):
     """Identifies WHEN a reminder is scheduled relative to the appointment."""
+    HOURS_BEFORE_3 = '3_HOURS_BEFORE', '3 Hours Before Appointment'
     DAY_BEFORE = 'DAY_BEFORE', 'Evening before appointment (7 PM IST)'
     SAME_DAY = 'SAME_DAY', 'Morning of appointment (7 AM IST)'
 

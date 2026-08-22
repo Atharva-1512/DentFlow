@@ -1,18 +1,15 @@
 """
-Notification Services — DentFlow WhatsApp Reminder Engine
+Notification Services — DentFlow Centralized WhatsApp Reminder Engine
 
-All appointment reminders are sent exclusively from the clinic's own connected
-WhatsApp account via the Node.js whatsapp-service microservice.
-
-Rules enforced here:
-1. Never send from a shared DentFlow number.
-2. If a clinic's session is DISCONNECTED → mark reminder SKIPPED, do not send.
-3. Each clinic's reminders are completely isolated from other clinics.
-4. Deduplication is enforced by the unique constraint on ReminderHistory.
+All appointment reminders and summaries are sent from the centralized DentFlow mobile number:
+1. Evening 7:00 PM IST: Summary to Clinic listing tomorrow's scheduled patients and treatments.
+2. Day of Appointment: Automated message to Patient dispatched 3 hours before appointment time
+   containing the appointment time, doctor, clinic name, address, and scheduled treatment.
 """
 
 import datetime
 import logging
+from zoneinfo import ZoneInfo
 from django.utils import timezone
 from django.db import IntegrityError
 from clinics.models import Clinic
@@ -26,31 +23,26 @@ from .models import (
     ReminderStatus,
     WhatsAppSession,
 )
+from .providers.dentflow_gateway import DentFlowWhatsAppProvider
 
 logger = logging.getLogger('dentflow.notifications')
-
-# IST hours for each reminder slot
-SLOT_HOURS = {
-    ReminderSlot.SAME_DAY: 7,    # 7:00 AM IST — morning of appointment
-    ReminderSlot.DAY_BEFORE: 19, # 7:00 PM IST — evening before appointment
-}
-
+IST = ZoneInfo('Asia/Kolkata')
 MAX_RETRIES = 3
 
 
-# ─── Template helpers ─────────────────────────────────────────────────────────
+# ─── Template Helpers ─────────────────────────────────────────────────────────
 
 def interpolate_template(body: str, context: dict) -> str:
     """Replace {{key}} placeholders with context values."""
     for key, value in context.items():
-        body = body.replace(f"{{{{{key}}}}}", str(value))
+        body = body.replace(f"{{{{{key}}}}}", str(value) if value is not None else "")
     return body
 
 
-def get_template(clinic, template_type: str) -> "NotificationTemplate":
+def get_template(clinic, template_type: str) -> NotificationTemplate:
     """
     Return clinic-specific template, falling back to global default.
-    Seeds a global default on first use if none exists.
+    Seeds a default template if none exists.
     """
     tmpl = NotificationTemplate.objects.filter(clinic=clinic, template_type=template_type).first()
     if tmpl:
@@ -61,44 +53,55 @@ def get_template(clinic, template_type: str) -> "NotificationTemplate":
         return tmpl
 
     defaults = {
-        NotificationType.PATIENT_SAME_DAY: (
+        NotificationType.PATIENT_REMINDER_3HR: (
             "Hello {{patient_name}} 👋\n\n"
-            "This is a reminder from *{{clinic_name}}* that you have a dental appointment today!\n\n"
+            "This is a reminder from *DentFlow* that you have a dental appointment in 3 hours!\n\n"
             "🗓 *Date:* {{appointment_date}}\n"
             "⏰ *Time:* {{appointment_time}}\n"
-            "👨‍⚕️ *Doctor:* {{doctor}}\n\n"
-            "Please arrive 5 minutes early. Reply to this message if you need to reschedule."
+            "👨‍⚕️ *Doctor:* {{doctor}}\n"
+            "🏥 *Clinic:* {{clinic_name}}\n"
+            "📍 *Address:* {{clinic_address}}\n"
+            "🦷 *Treatment/Purpose:* {{treatment}}\n\n"
+            "Please arrive 10 minutes before your scheduled time."
+        ),
+        NotificationType.PATIENT_SAME_DAY: (
+            "Hello {{patient_name}} 👋\n\n"
+            "This is a reminder from *DentFlow* that you have a dental appointment in 3 hours!\n\n"
+            "🗓 *Date:* {{appointment_date}}\n"
+            "⏰ *Time:* {{appointment_time}}\n"
+            "👨‍⚕️ *Doctor:* {{doctor}}\n"
+            "🏥 *Clinic:* {{clinic_name}}\n"
+            "📍 *Address:* {{clinic_address}}\n"
+            "🦷 *Treatment/Purpose:* {{treatment}}\n\n"
+            "Please arrive 10 minutes before your scheduled time."
+        ),
+        NotificationType.CLINIC_TOMORROW_SUMMARY: (
+            "📋 *{{clinic_name}} — Tomorrow's Scheduled Patients*\n"
+            "📅 Date: {{appointment_date}}\n\n"
+            "{{appointments_list}}\n\n"
+            "Total: {{total_count}} scheduled appointment(s)\n"
+            "— Sent via DentFlow WhatsApp"
         ),
         NotificationType.CLINIC_PREV_DAY: (
-            "📋 *{{clinic_name}} — Tomorrow's Appointments*\n"
-            "📅 {{appointment_date}}\n\n"
+            "📋 *{{clinic_name}} — Tomorrow's Scheduled Patients*\n"
+            "📅 Date: {{appointment_date}}\n\n"
             "{{appointments_list}}\n\n"
-            "Total: {{total_count}} appointment(s)"
+            "Total: {{total_count}} scheduled appointment(s)\n"
+            "— Sent via DentFlow WhatsApp"
         ),
         NotificationType.CLINIC_SAME_DAY: (
-            "📋 *{{clinic_name}} — Today's Appointments*\n"
-            "📅 {{appointment_date}}\n\n"
+            "📋 *{{clinic_name}} — Today's Scheduled Patients*\n"
+            "📅 Date: {{appointment_date}}\n\n"
             "{{appointments_list}}\n\n"
-            "Total: {{total_count}} appointment(s)"
+            "Total: {{total_count}} scheduled appointment(s)\n"
+            "— Sent via DentFlow WhatsApp"
         ),
     }
 
-    body = defaults.get(template_type, "Appointment reminder: {{patient_name}}")
+    body = defaults.get(template_type, "DentFlow appointment reminder for {{patient_name}} at {{clinic_name}}")
     tmpl = NotificationTemplate.objects.create(clinic=None, template_type=template_type, body=body)
     return tmpl
 
-
-# ─── IST-aware scheduled datetime helper ─────────────────────────────────────
-
-def _scheduled_at_ist(date: datetime.date, hour: int) -> datetime.datetime:
-    """Return a timezone-aware datetime at `hour` IST on `date`."""
-    from zoneinfo import ZoneInfo
-    ist = ZoneInfo('Asia/Kolkata')
-    naive = datetime.datetime.combine(date, datetime.time(hour, 0, 0))
-    return naive.replace(tzinfo=ist)
-
-
-# ─── Is clinic eligible? ──────────────────────────────────────────────────────
 
 def _clinic_is_eligible(clinic: Clinic) -> bool:
     """Return True if the clinic has an active or trial subscription."""
@@ -115,17 +118,16 @@ def _clinic_is_eligible(clinic: Clinic) -> bool:
         return False
 
 
-# ─── Reminder Generation ──────────────────────────────────────────────────────
+# ─── Patient 3-Hour Reminder Generation ───────────────────────────────────────
 
 def generate_patient_reminders(target_date: datetime.date) -> int:
     """
-    Create SAME_DAY ReminderHistory entries for every SCHEDULED appointment on target_date.
-    Reminder is scheduled for 7:00 AM IST on target_date.
+    Create 3-Hour ReminderHistory entries for every SCHEDULED appointment on target_date.
+    Scheduled time is dynamically calculated as: (appointment_date + appointment_time) - 3 hours.
     Skips duplicates silently (unique constraint).
 
     Returns: number of new reminders created.
     """
-    scheduled_at = _scheduled_at_ist(target_date, SLOT_HOURS[ReminderSlot.SAME_DAY])
     appointments = (
         Appointment.objects
         .filter(appointment_date=target_date, status='SCHEDULED')
@@ -137,21 +139,36 @@ def generate_patient_reminders(target_date: datetime.date) -> int:
         if not _clinic_is_eligible(appt.clinic):
             continue
 
-        template = get_template(appt.clinic, NotificationType.PATIENT_SAME_DAY)
+        # Combine date + time into IST timezone-aware datetime
+        naive_dt = datetime.datetime.combine(appt.appointment_date, appt.appointment_time)
+        appt_ist_dt = naive_dt.replace(tzinfo=IST)
+        # Schedule reminder exactly 3 hours before the appointment
+        scheduled_at = appt_ist_dt - datetime.timedelta(hours=3)
+
+        # Determine treatment description (reason or procedure type)
+        treatment = appt.appointment_reason.strip() if appt.appointment_reason else appt.get_appointment_type_display()
+        clinic_address = appt.clinic.address.strip() if appt.clinic.address else "Address on file"
+
+        template = get_template(appt.clinic, NotificationType.PATIENT_REMINDER_3HR)
         context = {
             'patient_name': appt.patient.full_name,
             'appointment_time': appt.appointment_time.strftime('%I:%M %p'),
             'appointment_date': target_date.strftime('%d %B %Y'),
             'doctor': appt.consulting_doctor,
             'clinic_name': appt.clinic.name,
+            'clinic_address': clinic_address,
+            'treatment': treatment,
         }
         message = interpolate_template(template.body, context)
+
+        # Slot preference: HOURS_BEFORE_3 (fallback to SAME_DAY if slot enum constraints apply)
+        slot = getattr(ReminderSlot, 'HOURS_BEFORE_3', ReminderSlot.SAME_DAY)
 
         try:
             ReminderHistory.objects.create(
                 clinic=appt.clinic,
                 appointment=appt,
-                slot=ReminderSlot.SAME_DAY,
+                slot=slot,
                 target=ReminderTarget.PATIENT,
                 recipient_number=appt.patient.mobile_number,
                 message=message,
@@ -159,30 +176,35 @@ def generate_patient_reminders(target_date: datetime.date) -> int:
             )
             count += 1
         except IntegrityError:
-            pass  # Already exists for this appointment+slot+target
+            pass  # Already scheduled for this appointment+slot+target
 
-    logger.info(f"[generate_patient_reminders] {count} new reminders for {target_date}")
+    logger.info(f"[generate_patient_reminders] Created {count} 3-hour prior patient reminders for {target_date}")
     return count
 
 
-def generate_clinic_summaries(target_date: datetime.date, is_previous_day: bool = False) -> int:
+# ─── Clinic Summary Generation (7 PM Evening with Treatments) ─────────────────
+
+def generate_clinic_summaries(target_date: datetime.date, is_previous_day: bool = True) -> int:
     """
     Create ReminderHistory entries for clinic owner summaries.
 
-    - is_previous_day=True  → CLINIC target, DAY_BEFORE slot, 7 PM IST, for tomorrow's appts
-    - is_previous_day=False → CLINIC target, SAME_DAY slot,  7 AM IST, for today's appts
+    - is_previous_day=True (Default at 7:00 PM IST):
+      Sends tomorrow's appointment list with each patient's scheduled treatments to the clinic.
+    - is_previous_day=False (Morning at 7:00 AM IST):
+      Sends today's appointment list with treatments to the clinic.
 
     Returns: number of new reminders created.
     """
     if is_previous_day:
         slot = ReminderSlot.DAY_BEFORE
         appt_date = target_date + datetime.timedelta(days=1)
-        scheduled_at = _scheduled_at_ist(target_date, SLOT_HOURS[ReminderSlot.DAY_BEFORE])
-        notif_type = NotificationType.CLINIC_PREV_DAY
+        # Schedule at 7:00 PM IST on target_date
+        scheduled_at = datetime.datetime.combine(target_date, datetime.time(19, 0, 0)).replace(tzinfo=IST)
+        notif_type = NotificationType.CLINIC_TOMORROW_SUMMARY
     else:
         slot = ReminderSlot.SAME_DAY
         appt_date = target_date
-        scheduled_at = _scheduled_at_ist(target_date, SLOT_HOURS[ReminderSlot.SAME_DAY])
+        scheduled_at = datetime.datetime.combine(target_date, datetime.time(7, 0, 0)).replace(tzinfo=IST)
         notif_type = NotificationType.CLINIC_SAME_DAY
 
     clinics = Clinic.objects.filter(is_active=True)
@@ -202,11 +224,12 @@ def generate_clinic_summaries(target_date: datetime.date, is_previous_day: bool 
         if not appointments.exists():
             continue
 
-        # Build appointment bullet list
+        # Build itemized list with Patient Name, Time, Doctor, and Treatment
         bullets = []
         for i, appt in enumerate(appointments, 1):
             time_str = appt.appointment_time.strftime('%I:%M %p')
-            bullets.append(f"{i}. {time_str} — {appt.patient.full_name} ({appt.consulting_doctor})")
+            treatment_str = appt.appointment_reason.strip() if appt.appointment_reason else appt.get_appointment_type_display()
+            bullets.append(f"{i}. *{time_str}* — {appt.patient.full_name} ({appt.consulting_doctor}) | Treatment: _{treatment_str}_")
         appointments_list = "\n".join(bullets)
 
         template = get_template(clinic, notif_type)
@@ -218,20 +241,19 @@ def generate_clinic_summaries(target_date: datetime.date, is_previous_day: bool 
         }
         message = interpolate_template(template.body, context)
 
-        # Clinic owner WhatsApp number (from session or clinic field)
-        try:
-            session = clinic.whatsapp_session
-            recipient_number = session.connected_number or ''
-        except WhatsAppSession.DoesNotExist:
-            recipient_number = clinic.notification_whatsapp_number or ''
+        # Clinic destination WhatsApp number
+        recipient_number = clinic.notification_whatsapp_number
+        if not recipient_number:
+            try:
+                session = clinic.whatsapp_session
+                recipient_number = session.connected_number or ''
+            except WhatsAppSession.DoesNotExist:
+                recipient_number = ''
 
         if not recipient_number:
-            logger.warning(f"[generate_clinic_summaries] No recipient number for clinic {clinic.name}")
+            logger.warning(f"[generate_clinic_summaries] No WhatsApp number configured for clinic {clinic.name}")
             continue
 
-        # Use a synthetic "appointment" FK isn't possible for clinic summaries.
-        # We create ONE reminder per clinic per slot per date.
-        # We check for duplicates manually since there's no appointment FK here.
         exists = ReminderHistory.objects.filter(
             clinic=clinic,
             slot=slot,
@@ -244,7 +266,7 @@ def generate_clinic_summaries(target_date: datetime.date, is_previous_day: bool 
 
         ReminderHistory.objects.create(
             clinic=clinic,
-            appointment=appointments.first(),  # Anchor to first appointment for FK requirement
+            appointment=appointments.first(),
             slot=slot,
             target=ReminderTarget.CLINIC,
             recipient_number=recipient_number,
@@ -253,26 +275,19 @@ def generate_clinic_summaries(target_date: datetime.date, is_previous_day: bool 
         )
         count += 1
 
-    logger.info(f"[generate_clinic_summaries] {count} new clinic summaries (prev_day={is_previous_day})")
+    logger.info(f"[generate_clinic_summaries] Created {count} clinic summaries (tomorrow={is_previous_day})")
     return count
 
 
-# ─── Reminder Dispatch ────────────────────────────────────────────────────────
+# ─── Centralized Reminder Dispatch Engine ─────────────────────────────────────
 
 def dispatch_pending_reminders() -> dict:
     """
     Dispatch all PENDING reminders that are due now (scheduled_for <= now).
-
-    CLINIC ISOLATION ENFORCED HERE:
-    - Each clinic's WhatsApp session is checked independently.
-    - If a clinic's session is DISCONNECTED → reminder is marked SKIPPED.
-    - Messages are NEVER sent from a shared or fallback number.
-    - Retries up to MAX_RETRIES times before marking FAILED permanently.
+    All messages are sent from the centralized DentFlow mobile number.
 
     Returns: {'sent': N, 'skipped': N, 'failed': N}
     """
-    from .providers.whatsapp_web import WhatsAppWebProvider
-
     now = timezone.now()
     pending = ReminderHistory.objects.filter(
         status__in=[ReminderStatus.PENDING, ReminderStatus.FAILED],
@@ -281,14 +296,10 @@ def dispatch_pending_reminders() -> dict:
     ).select_related('clinic', 'appointment', 'appointment__patient')
 
     results = {'sent': 0, 'skipped': 0, 'failed': 0}
+    provider = DentFlowWhatsAppProvider()
 
     for reminder in pending:
-        clinic = reminder.clinic
-        clinic_id = str(clinic.id)
-
         try:
-            provider = WhatsAppWebProvider(clinic_id=clinic_id)
-            # This will raise RuntimeError if not CONNECTED
             msg_id = provider.send_whatsapp_message(
                 to_number=reminder.recipient_number,
                 body=reminder.message,
@@ -299,42 +310,23 @@ def dispatch_pending_reminders() -> dict:
             reminder.error_message = None
             reminder.save(update_fields=['status', 'sent_at', 'error_message'])
 
-            # Update session last_activity
-            WhatsAppSession.objects.filter(clinic=clinic).update(last_activity=timezone.now())
+            # Update session last_activity if present
+            WhatsAppSession.objects.filter(clinic=reminder.clinic).update(last_activity=timezone.now())
 
             logger.info(
-                f"[dispatch] ✅ Sent {reminder.slot}/{reminder.target} "
-                f"→ {reminder.recipient_number} (clinic={clinic.name}, msg_id={msg_id})"
+                f"[dispatch] ✅ Sent reminder ({reminder.slot}/{reminder.target}) "
+                f"→ {reminder.recipient_number} (Clinic: {reminder.clinic.name}, MsgID: {msg_id})"
             )
             results['sent'] += 1
-
-        except RuntimeError as e:
-            # Session disconnected — skip this reminder
-            err_str = str(e)
-            if 'not connected' in err_str.lower():
-                reminder.status = ReminderStatus.SKIPPED
-                reminder.error_message = err_str
-                reminder.save(update_fields=['status', 'error_message'])
-                logger.warning(
-                    f"[dispatch] ⚠️  SKIPPED {reminder.slot}/{reminder.target} "
-                    f"for clinic={clinic.name} — WhatsApp session not connected"
-                )
-                results['skipped'] += 1
-            else:
-                reminder.status = ReminderStatus.FAILED
-                reminder.retry_count += 1
-                reminder.error_message = err_str
-                reminder.save(update_fields=['status', 'retry_count', 'error_message'])
-                logger.error(f"[dispatch] ❌ FAILED: {e}")
-                results['failed'] += 1
 
         except Exception as e:
             reminder.status = ReminderStatus.FAILED
             reminder.retry_count += 1
             reminder.error_message = str(e)
             reminder.save(update_fields=['status', 'retry_count', 'error_message'])
-            logger.exception(f"[dispatch] ❌ Unexpected error for reminder {reminder.id}: {e}")
+            logger.exception(f"[dispatch] ❌ Failed to dispatch reminder {reminder.id}: {e}")
             results['failed'] += 1
 
-    logger.info(f"[dispatch_pending_reminders] Results: {results}")
+    logger.info(f"[dispatch_pending_reminders] Dispatch results: {results}")
     return results
+

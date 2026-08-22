@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'notifications',
     'analytics',
     'clinic_calendar',
+    'subscriptions',
 ]
 
 MIDDLEWARE = [
@@ -211,10 +212,25 @@ RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID', '')
 RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET', '')
 RAZORPAY_WEBHOOK_SECRET = os.getenv('RAZORPAY_WEBHOOK_SECRET', '')
 
-# WhatsApp Web Microservice (Node.js whatsapp-web.js service)
-# URL of the deployed Node.js microservice (e.g., https://dentflow-whatsapp.onrender.com)
+# Centralized DentFlow WhatsApp System Configuration
+# All automated reminders are sent from this centralized DentFlow number
+DENTFLOW_WHATSAPP_NUMBER = os.getenv('DENTFLOW_WHATSAPP_NUMBER', '+919876543210')
+WHATSAPP_PROVIDER = os.getenv('WHATSAPP_PROVIDER', 'mock')  # 'mock', 'meta', 'twilio', 'gateway'
+
+# Meta WhatsApp Cloud API credentials
+WHATSAPP_CLOUD_API_ACCESS_TOKEN = os.getenv('WHATSAPP_CLOUD_API_ACCESS_TOKEN', '')
+WHATSAPP_CLOUD_API_PHONE_NUMBER_ID = os.getenv('WHATSAPP_CLOUD_API_PHONE_NUMBER_ID', '')
+
+# Twilio WhatsApp credentials
+WHATSAPP_TWILIO_ACCOUNT_SID = os.getenv('WHATSAPP_TWILIO_ACCOUNT_SID', '')
+WHATSAPP_TWILIO_AUTH_TOKEN = os.getenv('WHATSAPP_TWILIO_AUTH_TOKEN', '')
+
+# Generic WhatsApp HTTP Gateway credentials
+WHATSAPP_GATEWAY_URL = os.getenv('WHATSAPP_GATEWAY_URL', '')
+WHATSAPP_GATEWAY_SECRET = os.getenv('WHATSAPP_GATEWAY_SECRET', '')
+
+# Legacy microservice settings (backward compatibility)
 WHATSAPP_SERVICE_URL = os.getenv('WHATSAPP_SERVICE_URL', 'http://localhost:3001')
-# Shared secret — must match SERVICE_SECRET in whatsapp-service/.env
 WHATSAPP_SERVICE_SECRET = os.getenv('WHATSAPP_SERVICE_SECRET', 'changeme')
 
 # Cron secret for securing the cron trigger endpoint

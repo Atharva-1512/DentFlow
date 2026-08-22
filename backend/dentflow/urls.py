@@ -18,6 +18,8 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
+from subscriptions.views import RazorpayWebhookView
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     
@@ -32,4 +34,6 @@ urlpatterns = [
     path('api/appointments/', include('appointments.urls')),
     path('api/calendar/', include('clinic_calendar.urls')),
     path('api/notifications/', include('notifications.urls')),
+    path('api/subscriptions/', include('subscriptions.urls')),
+    path('api/webhooks/razorpay/', RazorpayWebhookView.as_view(), name='razorpay_webhook'),
 ]
