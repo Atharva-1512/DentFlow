@@ -10,7 +10,6 @@ import {
   Alert,
   CircularProgress,
   Avatar,
-  Stack,
   Tabs,
   Tab,
   TextField,
@@ -36,9 +35,6 @@ import {
 import {
   Settings as SettingsIcon,
   Business as BusinessIcon,
-  Phone as PhoneIcon,
-  Badge as BadgeIcon,
-  ReceiptLong as InvoiceIcon,
   AccessTime as TimeIcon,
   People as PeopleIcon,
   MedicalServices as TreatmentIcon,
@@ -332,7 +328,7 @@ export const ClinicSettings: React.FC = () => {
             </Typography>
 
             <Grid container spacing={3}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="Clinic Name *"
@@ -340,7 +336,7 @@ export const ClinicSettings: React.FC = () => {
                   onChange={(e) => setName(e.target.value)}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="Contact Phone / WhatsApp *"
@@ -348,7 +344,7 @@ export const ClinicSettings: React.FC = () => {
                   onChange={(e) => setPhone(e.target.value)}
                 />
               </Grid>
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <TextField
                   fullWidth
                   label="Full Clinic Address *"
@@ -359,9 +355,9 @@ export const ClinicSettings: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12}><Divider /></Grid>
+              <Grid size={{ xs: 12 }}><Divider /></Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="DCI Registration / License Number"
@@ -370,7 +366,7 @@ export const ClinicSettings: React.FC = () => {
                   onChange={(e) => setDciNumber(e.target.value)}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="GST / Tax Registration ID Number"
@@ -380,7 +376,7 @@ export const ClinicSettings: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   label="Custom Invoice Prefix"
@@ -389,7 +385,7 @@ export const ClinicSettings: React.FC = () => {
                   helperText="Prefix for generated bill numbers (e.g. DF-2026/)"
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   fullWidth
                   type="number"
@@ -400,7 +396,7 @@ export const ClinicSettings: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12}>
+              <Grid size={{ xs: 12 }}>
                 <TextField
                   fullWidth
                   label="Terms & Conditions (Printed on PDF Invoices)"
@@ -411,7 +407,7 @@ export const ClinicSettings: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} sx={{ textAlign: 'right', mt: 2 }}>
+              <Grid size={{ xs: 12 }} sx={{ textAlign: 'right', mt: 2 }}>
                 <Button
                   variant="contained"
                   color="primary"
@@ -438,7 +434,7 @@ export const ClinicSettings: React.FC = () => {
             </Typography>
 
             <Grid container spacing={3}>
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <TextField
                   select
                   fullWidth
@@ -453,7 +449,7 @@ export const ClinicSettings: React.FC = () => {
                 </TextField>
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
                   Working Days Checklist
                 </Typography>
@@ -474,7 +470,7 @@ export const ClinicSettings: React.FC = () => {
                 </Box>
               </Grid>
 
-              <Grid item xs={12} sm={3}>
+              <Grid size={{ xs: 12, sm: 3 }}>
                 <TextField
                   fullWidth
                   label="Clinic Opening Time"
@@ -484,7 +480,7 @@ export const ClinicSettings: React.FC = () => {
                   slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Grid>
-              <Grid item xs={12} sm={3}>
+              <Grid size={{ xs: 12, sm: 3 }}>
                 <TextField
                   fullWidth
                   label="Clinic Closing Time"
@@ -494,7 +490,7 @@ export const ClinicSettings: React.FC = () => {
                   slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Grid>
-              <Grid item xs={12} sm={3}>
+              <Grid size={{ xs: 12, sm: 3 }}>
                 <TextField
                   fullWidth
                   label="Lunch Break Start"
@@ -504,7 +500,7 @@ export const ClinicSettings: React.FC = () => {
                   slotProps={{ inputLabel: { shrink: true } }}
                 />
               </Grid>
-              <Grid item xs={12} sm={3}>
+              <Grid size={{ xs: 12, sm: 3 }}>
                 <TextField
                   fullWidth
                   label="Lunch Break End"
@@ -515,7 +511,7 @@ export const ClinicSettings: React.FC = () => {
                 />
               </Grid>
 
-              <Grid item xs={12} sx={{ textAlign: 'right', mt: 2 }}>
+              <Grid size={{ xs: 12 }} sx={{ textAlign: 'right', mt: 2 }}>
                 <Button
                   variant="contained"
                   color="primary"
@@ -554,7 +550,7 @@ export const ClinicSettings: React.FC = () => {
             <Divider sx={{ mb: 2 }} />
 
             {!clinic.holidays || clinic.holidays.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 2, italic: true }}>
+              <Typography variant="body2" color="text.secondary" sx={{ py: 2, fontStyle: 'italic' }}>
                 No holidays recorded. Click "+ Add Clinic Holiday" to block appointment slots on closure dates.
               </Typography>
             ) : (
@@ -738,7 +734,7 @@ export const ClinicSettings: React.FC = () => {
             onChange={(e) => setDocName(e.target.value)}
           />
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 label="Qualifications"
@@ -747,7 +743,7 @@ export const ClinicSettings: React.FC = () => {
                 onChange={(e) => setDocQual(e.target.value)}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 label="Consultation Fee (₹)"
@@ -756,7 +752,7 @@ export const ClinicSettings: React.FC = () => {
                 onChange={(e) => setDocFee(e.target.value)}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 label="Specialization"
@@ -765,7 +761,7 @@ export const ClinicSettings: React.FC = () => {
                 onChange={(e) => setDocSpec(e.target.value)}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 label="Shift Hours"
@@ -798,7 +794,7 @@ export const ClinicSettings: React.FC = () => {
             onChange={(e) => setTreatName(e.target.value)}
           />
           <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 label="Category"
@@ -807,7 +803,7 @@ export const ClinicSettings: React.FC = () => {
                 onChange={(e) => setTreatCat(e.target.value)}
               />
             </Grid>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 label="Default Cost (₹)"
@@ -816,7 +812,7 @@ export const ClinicSettings: React.FC = () => {
                 onChange={(e) => setTreatCost(e.target.value)}
               />
             </Grid>
-            <Grid item xs={12}>
+            <Grid size={{ xs: 12 }}>
               <TextField
                 fullWidth
                 label="Estimated Duration"

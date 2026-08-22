@@ -314,7 +314,7 @@ export const LabWork: React.FC = () => {
 
       {/* Summary Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card variant="outlined" sx={{ borderRadius: 3, borderColor: 'primary.main', bgcolor: 'rgba(25, 118, 210, 0.04)' }}>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -333,7 +333,7 @@ export const LabWork: React.FC = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card variant="outlined" sx={{ borderRadius: 3, borderColor: 'secondary.main', bgcolor: 'rgba(156, 39, 176, 0.04)' }}>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -352,7 +352,7 @@ export const LabWork: React.FC = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card variant="outlined" sx={{ borderRadius: 3, borderColor: 'success.main', bgcolor: 'rgba(76, 175, 80, 0.04)' }}>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -371,7 +371,7 @@ export const LabWork: React.FC = () => {
           </Card>
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <Card variant="outlined" sx={{ borderRadius: 3, borderColor: totalPending > 0 ? 'error.main' : 'grey.300', bgcolor: totalPending > 0 ? 'rgba(211, 47, 47, 0.04)' : 'background.paper' }}>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
@@ -519,7 +519,7 @@ export const LabWork: React.FC = () => {
           </Typography>
 
           <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <Autocomplete
                 options={patientsData || []}
                 getOptionLabel={(option: Patient) => `${option.full_name} (${option.mobile_number})`}
@@ -542,7 +542,7 @@ export const LabWork: React.FC = () => {
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -554,7 +554,7 @@ export const LabWork: React.FC = () => {
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -565,7 +565,7 @@ export const LabWork: React.FC = () => {
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -576,7 +576,7 @@ export const LabWork: React.FC = () => {
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -588,7 +588,7 @@ export const LabWork: React.FC = () => {
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -607,7 +607,7 @@ export const LabWork: React.FC = () => {
           </Typography>
 
           <Grid container spacing={2} sx={{ mb: 2 }}>
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -618,7 +618,7 @@ export const LabWork: React.FC = () => {
               />
             </Grid>
 
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -629,7 +629,7 @@ export const LabWork: React.FC = () => {
               />
             </Grid>
 
-            <Grid item xs={12} sm={4}>
+            <Grid size={{ xs: 12, sm: 4 }}>
               <TextField
                 fullWidth
                 size="small"
@@ -645,7 +645,7 @@ export const LabWork: React.FC = () => {
               />
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 select
                 fullWidth
@@ -662,7 +662,7 @@ export const LabWork: React.FC = () => {
               </TextField>
             </Grid>
 
-            <Grid item xs={12} sm={6}>
+            <Grid size={{ xs: 12, sm: 6 }}>
               <TextField
                 fullWidth
                 size="small"

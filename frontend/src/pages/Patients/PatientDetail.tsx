@@ -143,7 +143,6 @@ const PatientDetail: React.FC = () => {
   };
 
   const renderTimelineItem = (item: any, index: number) => {
-    const isVisit = item.type === 'VISIT';
     const isAppt = item.type === 'APPOINTMENT';
     const isPayment = item.type === 'PAYMENT';
 
@@ -268,12 +267,12 @@ const PatientDetail: React.FC = () => {
 
           <Grid container spacing={2}>
             {patient.patient_id && (
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                 <Typography variant="body2" color="text.secondary">Patient ID</Typography>
                 <Typography variant="body1" sx={{ fontWeight: 600 }}>{patient.patient_id}</Typography>
               </Grid>
             )}
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Typography variant="body2" color="text.secondary">Gender / Age</Typography>
               <Typography variant="body1" sx={{ fontWeight: 600 }}>
                 {patient.gender === 'M' ? 'Male' : patient.gender === 'F' ? 'Female' : 'Other'},{' '}
@@ -283,23 +282,23 @@ const PatientDetail: React.FC = () => {
                 yrs
               </Typography>
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Typography variant="body2" color="text.secondary">Mobile Number</Typography>
               <Typography variant="body1" sx={{ fontWeight: 600 }}>{patient.mobile_number}</Typography>
             </Grid>
-            <Grid item xs={12} sm={6} md={3}>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
               <Typography variant="body2" color="text.secondary">Consulting Doctor</Typography>
               <Typography variant="body1" sx={{ fontWeight: 600 }}>{patient.consulting_doctor_name || 'N/A'}</Typography>
             </Grid>
 
             {patient.address && (
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Typography variant="body2" color="text.secondary">Address</Typography>
                 <Typography variant="body1">{patient.address}</Typography>
               </Grid>
             )}
             {patient.chief_complaint && (
-              <Grid item xs={12} sm={6}>
+              <Grid size={{ xs: 12, sm: 6 }}>
                 <Typography variant="body2" color="text.secondary">Chief Complaint</Typography>
                 <Typography variant="body1">{patient.chief_complaint}</Typography>
               </Grid>
@@ -336,7 +335,7 @@ const PatientDetail: React.FC = () => {
       {/* TAB 0: OVERVIEW */}
       <CustomTabPanel value={activeTab} index={0}>
         <Grid container spacing={3}>
-          <Grid item xs={12} md={7}>
+          <Grid size={{ xs: 12, md: 7 }}>
             <Card variant="outlined" sx={{ borderRadius: 2, mb: 3 }}>
               <CardContent>
                 <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, color: 'primary.main' }}>
@@ -360,7 +359,7 @@ const PatientDetail: React.FC = () => {
             </Card>
           </Grid>
 
-          <Grid item xs={12} md={5}>
+          <Grid size={{ xs: 12, md: 5 }}>
             {/* Financial Summary Card */}
             <Card variant="outlined" sx={{ borderRadius: 2, mb: 3, background: 'linear-gradient(135deg, rgba(25, 118, 210, 0.05) 0%, rgba(156, 39, 176, 0.05) 100%)' }}>
               <CardContent>
@@ -427,7 +426,7 @@ const PatientDetail: React.FC = () => {
               const dateObj = new Date(visit.date);
               const formattedDate = isNaN(dateObj.getTime()) ? visit.date : dateObj.toLocaleDateString();
               return (
-                <Grid item xs={12} key={visit.id || index}>
+                <Grid size={{ xs: 12 }} key={visit.id || index}>
                   <Card variant="outlined" sx={{ borderRadius: 2, boxShadow: 1 }}>
                     <CardContent>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
@@ -491,7 +490,7 @@ const PatientDetail: React.FC = () => {
                   return (
                     <TableRow key={appt.id || index} hover>
                       <TableCell sx={{ fontWeight: 600 }}>
-                        {formattedDate} {formattedTime && <Typography variant="caption" color="text.secondary" display="block">{formattedTime}</Typography>}
+                        {formattedDate} {formattedTime && <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>{formattedTime}</Typography>}
                       </TableCell>
                       <TableCell>{appt.doctor || 'N/A'}</TableCell>
                       <TableCell>{appt.title}</TableCell>
@@ -535,7 +534,7 @@ const PatientDetail: React.FC = () => {
 
         {/* Financial Cards */}
         <Grid container spacing={2} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <Paper variant="outlined" sx={{ p: 2, textAlign: 'center', borderColor: 'primary.main', borderRadius: 2 }}>
               <Typography variant="body2" color="text.secondary">Total Billed</Typography>
               <Typography variant="h5" sx={{ fontWeight: 700, color: 'primary.main', mt: 0.5 }}>
@@ -543,7 +542,7 @@ const PatientDetail: React.FC = () => {
               </Typography>
             </Paper>
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <Paper variant="outlined" sx={{ p: 2, textAlign: 'center', borderColor: 'success.main', borderRadius: 2 }}>
               <Typography variant="body2" color="text.secondary">Total Collected / Paid</Typography>
               <Typography variant="h5" sx={{ fontWeight: 700, color: 'success.main', mt: 0.5 }}>
@@ -551,7 +550,7 @@ const PatientDetail: React.FC = () => {
               </Typography>
             </Paper>
           </Grid>
-          <Grid item xs={12} sm={4}>
+          <Grid size={{ xs: 12, sm: 4 }}>
             <Paper variant="outlined" sx={{ p: 2, textAlign: 'center', borderColor: totalOutstanding > 0 ? 'error.main' : 'grey.300', borderRadius: 2 }}>
               <Typography variant="body2" color="text.secondary">Outstanding Due</Typography>
               <Typography variant="h5" sx={{ fontWeight: 700, color: totalOutstanding > 0 ? 'error.main' : 'text.primary', mt: 0.5 }}>

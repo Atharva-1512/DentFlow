@@ -59,7 +59,7 @@ export const Register: React.FC = () => {
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormData>({
-    resolver: zodResolver(registerSchema),
+    resolver: zodResolver(registerSchema) as any,
     defaultValues: {
       invoice_prefix: 'DF-2026/',
       slot_duration: 30,
@@ -112,7 +112,7 @@ export const Register: React.FC = () => {
           CLINIC PROFILE & ADDRESS
         </Typography>
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               {...register('clinic_name')}
               label="Clinic Name *"
@@ -132,7 +132,7 @@ export const Register: React.FC = () => {
               }}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               {...register('mobile_number')}
               label="Contact Mobile / WhatsApp *"
@@ -153,7 +153,7 @@ export const Register: React.FC = () => {
               }}
             />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField
               {...register('clinic_address')}
               label="Full Clinic Address *"
@@ -175,7 +175,7 @@ export const Register: React.FC = () => {
           REGISTRATION & INVOICE SETTINGS
         </Typography>
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               {...register('dci_number')}
               label="DCI Reg / License Number"
@@ -194,7 +194,7 @@ export const Register: React.FC = () => {
               }}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               {...register('gst_number')}
               label="GST / Tax ID Number (Optional)"
@@ -204,7 +204,7 @@ export const Register: React.FC = () => {
               disabled={isSubmitting}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               {...register('invoice_prefix')}
               label="Invoice Number Prefix"
@@ -223,7 +223,7 @@ export const Register: React.FC = () => {
               }}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               select
               {...register('slot_duration', { valueAsNumber: true })}
@@ -243,7 +243,7 @@ export const Register: React.FC = () => {
 
         {/* Section 3: Operating Hours */}
         <Grid container spacing={2} sx={{ mb: 2 }}>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               {...register('opening_time')}
               label="Clinic Opening Time"
@@ -263,7 +263,7 @@ export const Register: React.FC = () => {
               }}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               {...register('closing_time')}
               label="Clinic Closing Time"
@@ -292,7 +292,7 @@ export const Register: React.FC = () => {
           OWNER ACCOUNT LOGIN CREDENTIALS
         </Typography>
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               {...register('username')}
               label="Login Username *"
@@ -312,7 +312,7 @@ export const Register: React.FC = () => {
               }}
             />
           </Grid>
-          <Grid item xs={12} sm={6}>
+          <Grid size={{ xs: 12, sm: 6 }}>
             <TextField
               {...register('email')}
               label="Email Address *"
@@ -333,7 +333,7 @@ export const Register: React.FC = () => {
               }}
             />
           </Grid>
-          <Grid item xs={12}>
+          <Grid size={{ xs: 12 }}>
             <TextField
               {...register('password')}
               label="Password *"

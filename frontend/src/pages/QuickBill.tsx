@@ -502,34 +502,40 @@ export const QuickBill: React.FC = () => {
                     setSavedBillNumber(null);
                     setSavedPatientId(null);
                   }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Select or Enter Patient Name"
-                      placeholder="Select existing patient or type name..."
-                      required
-                      InputProps={{
-                        ...params.InputProps,
-                        endAdornment: (
-                          <>
-                            {params.InputProps?.endAdornment}
-                            {matchedPatient ? (
-                              <Button
-                                size="small"
-                                variant="contained"
-                                color="primary"
-                                onClick={() => setOpenHistoryDialog(true)}
-                                sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.75rem', px: 1.5, py: 0.5, mr: -1 }}
-                              >
-                                View History
-                              </Button>
-                            ) : null}
-                          </>
-                        ),
-                      }}
-                      helperText={matchedPatient ? "Profile found in registry. Click 'View History' to see past records & invoices." : "Select from past patient records or type a new name."}
-                    />
-                  )}
+                  renderInput={(params) => {
+                    const p = params as any;
+                    const inputProps = p.slotProps?.input || p.InputProps || {};
+                    return (
+                      <TextField
+                        {...params}
+                        label="Select or Enter Patient Name"
+                        placeholder="Select existing patient or type name..."
+                        required
+                        slotProps={{
+                          input: {
+                            ...inputProps,
+                            endAdornment: (
+                              <>
+                                {inputProps?.endAdornment}
+                                {matchedPatient ? (
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    color="primary"
+                                    onClick={() => setOpenHistoryDialog(true)}
+                                    sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.75rem', px: 1.5, py: 0.5, mr: -1 }}
+                                  >
+                                    View History
+                                  </Button>
+                                ) : null}
+                              </>
+                            ),
+                          },
+                        }}
+                        helperText={matchedPatient ? "Profile found in registry. Click 'View History' to see past records & invoices." : "Select from past patient records or type a new name."}
+                      />
+                    );
+                  }}
                 />
               </Grid>
 

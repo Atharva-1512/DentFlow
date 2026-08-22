@@ -314,6 +314,9 @@ export const useCreateBill = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bills'] });
+      queryClient.invalidateQueries({ queryKey: ['collections'] });
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+      queryClient.invalidateQueries({ queryKey: ['visits'] });
     },
   });
 };
@@ -332,6 +335,9 @@ export const useUpdateBill = () => {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['bill', data.id] });
       queryClient.invalidateQueries({ queryKey: ['bills'] });
+      queryClient.invalidateQueries({ queryKey: ['collections'] });
+      queryClient.invalidateQueries({ queryKey: ['patients'] });
+      queryClient.invalidateQueries({ queryKey: ['visits'] });
     },
   });
 };

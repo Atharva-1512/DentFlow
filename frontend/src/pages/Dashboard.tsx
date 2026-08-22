@@ -102,7 +102,6 @@ const AccountsDialog: React.FC<AccountsDialogProps> = ({ open, onClose }) => {
 // ==========================================
 const ClinicOwnerDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { subscription } = useAuth();
   const [activeTab, setActiveTab] = useState<number>(0); // 0 = Menu, 1 = Schedule
   const [accountsOpen, setAccountsOpen] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
@@ -114,6 +113,8 @@ const ClinicOwnerDashboard: React.FC = () => {
       const res = await api.get('/patients/');
       return res.data;
     },
+    refetchOnMount: 'always',
+    staleTime: 0,
   });
 
   const { data: todayApptsData, isLoading: loadingToday } = useQuery({
@@ -122,6 +123,8 @@ const ClinicOwnerDashboard: React.FC = () => {
       const res = await api.get('/appointments/?today=true');
       return res.data;
     },
+    refetchOnMount: 'always',
+    staleTime: 0,
   });
 
   const { data: visitsData } = useQuery({
@@ -130,6 +133,8 @@ const ClinicOwnerDashboard: React.FC = () => {
       const res = await api.get('/visits/');
       return res.data;
     },
+    refetchOnMount: 'always',
+    staleTime: 0,
   });
 
   const { data: collectionsData } = useQuery({
@@ -138,6 +143,8 @@ const ClinicOwnerDashboard: React.FC = () => {
       const res = await api.get('/visits/bills/collections/');
       return res.data;
     },
+    refetchOnMount: 'always',
+    staleTime: 0,
   });
 
   const isLoading = loadingPatients || loadingToday;
