@@ -14,9 +14,10 @@ class PatientViewSet(viewsets.ViewSet):
     def list(self, request):
         search_query = request.query_params.get('search', None)
         page = int(request.query_params.get('page', 1))
+        page_size = int(request.query_params.get('page_size', 1000))
         
         from core.mongodb import get_patients
-        data = get_patients(request.user.id, search_query=search_query, page=page)
+        data = get_patients(request.user.id, search_query=search_query, page=page, page_size=page_size)
         return Response(data)
 
     def retrieve(self, request, pk=None):

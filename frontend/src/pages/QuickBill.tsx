@@ -28,6 +28,7 @@ import {
   CircularProgress,
   InputAdornment,
   Autocomplete,
+  Chip,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -35,6 +36,8 @@ import {
   Download as DownloadIcon,
   Save as SaveIcon,
   ArrowBack as BackIcon,
+  CheckCircle as CheckCircleIcon,
+  History as HistoryIcon,
 } from '@mui/icons-material';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -42,13 +45,14 @@ import autoTable from 'jspdf-autotable';
 import { useCreateBill, usePatients, usePatientTimeline, usePatientBills, usePatient } from '../hooks/useApi';
 import { useAuth } from '../context/AuthContext';
 import { toastRef } from '../context/ToastContext';
-import type { BillTreatment, BillPayment, Bill } from '../types';
+import type { BillTreatment, BillPayment, Bill, Patient } from '../types';
 
 export const QuickBill: React.FC = () => {
   const navigate = useNavigate();
   const { user, impersonatedClinic } = useAuth();
   
-  // Patient details form states (Direct inputs)
+  // Patient details form states
+  const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [patientName, setPatientName] = useState('');
   const [patientAge, setPatientAge] = useState('');
   const [patientGender, setPatientGender] = useState<'M' | 'F' | 'O'>('M');
@@ -98,7 +102,7 @@ export const QuickBill: React.FC = () => {
   const urlPatientId = searchParams.get('patient_id');
   const { data: urlPatient } = usePatient(urlPatientId || '');
 
-  // Query to fetch all registered patients for dropdown selection
+  // Query to fetch registered patients for dropdown selection
   const { data: allPatientsData } = usePatients('', 0);
   const allPatients = allPatientsData?.results || [];
 
@@ -107,14 +111,15 @@ export const QuickBill: React.FC = () => {
   const { data: matchedPatientsData } = usePatients(searchQuery, 0);
 
   // Match strictly by mobile or case-insensitive full name
-  const matchedPatient = matchedPatientsData?.results?.find(p => 
+  const matchedPatient = selectedPatient || matchedPatientsData?.results?.find(p => 
     (patientMobile.trim() && p.mobile_number === patientMobile.trim()) ||
     (patientName.trim() && p.full_name.toLowerCase() === patientName.trim().toLowerCase())
   );
 
   // Fetch timeline (visits + appointments) and bills for matched patient
-  const { data: timelineEvents, isLoading: loadingTimeline } = usePatientTimeline(matchedPatient?.id || '');
-  const { data: patientBillsData, isLoading: loadingBills } = usePatientBills(matchedPatient?.id || '');
+  const activePatientLookupId = selectedPatient?.id || matchedPatient?.id || '';
+  const { data: timelineEvents, isLoading: loadingTimeline } = usePatientTimeline(activePatientLookupId);
+  const { data: patientBillsData, isLoading: loadingBills } = usePatientBills(activePatientLookupId);
 
   // Auto-calculation logic
   const totalCost = treatments.reduce((sum, item) => sum + (Number(item.cost) * item.quantity), 0);
@@ -146,6 +151,7 @@ export const QuickBill: React.FC = () => {
   // Auto-fill fields if patient_id is provided in URL query string
   useEffect(() => {
     if (urlPatient) {
+      setSelectedPatient(urlPatient);
       setPatientName(urlPatient.full_name);
       setPatientMobile(urlPatient.mobile_number);
       const ageVal = urlPatient.date_of_birth
@@ -158,8 +164,6 @@ export const QuickBill: React.FC = () => {
       }
     }
   }, [urlPatient]);
-
-
 
   const handleAddTreatment = () => {
     setTreatments([
@@ -201,7 +205,7 @@ export const QuickBill: React.FC = () => {
 
   const handleSaveBill = () => {
     if (!patientName.trim()) {
-      toastRef.show('Please enter the patient name.', 'error');
+      toastRef.show('Please enter or select a patient name.', 'error');
       return;
     }
     if (treatments.length === 0) {
@@ -209,12 +213,16 @@ export const QuickBill: React.FC = () => {
       return;
     }
 
+    // Resolve target patient ID from selected state or matched DB profile
+    const targetPatientId = selectedPatient?.id || matchedPatient?.id || undefined;
+
     // Format payload
     const payload = {
-      patient_name: patientName,
+      patient: targetPatientId,
+      patient_name: patientName.trim(),
       patient_age: patientAge,
       patient_gender: patientGender,
-      patient_mobile: patientMobile,
+      patient_mobile: patientMobile.trim(),
       bill_date: billDate,
       doctor_name: `Dr. ${doctorName.trim()}`,
       total_cost: totalCost,
@@ -238,9 +246,11 @@ export const QuickBill: React.FC = () => {
 
     createBillMutation.mutate(payload, {
       onSuccess: (data) => {
-        toastRef.show('Invoice generated and saved successfully.', 'success');
-        setSavedBillNumber(data.bill_number || 'INV-SAVED');
-        setSavedPatientId(data.patient_id || null);
+        const pName = patientName.trim();
+        const billNo = data.bill_number || 'INV-SAVED';
+        toastRef.show(`Invoice ${billNo} generated and stored under patient ${pName} successfully.`, 'success');
+        setSavedBillNumber(billNo);
+        setSavedPatientId(data.patient_id || selectedPatient?.patient_id || null);
         setIsSaved(true);
       },
       onError: (err: any) => {
@@ -429,7 +439,7 @@ export const QuickBill: React.FC = () => {
       bill_date: billDate,
       doctor_name: `Dr. ${doctorName.trim()}`,
       bill_number: savedBillNumber || undefined,
-      patient_id: savedPatientId || matchedPatient?.patient_id || undefined,
+      patient_id: savedPatientId || selectedPatient?.patient_id || matchedPatient?.patient_id || undefined,
       clinic_address: clinicAddress,
       clinic_contact: clinicContact,
       treatments: treatments,
@@ -473,15 +483,34 @@ export const QuickBill: React.FC = () => {
               <Grid size={{ xs: 12, sm: 6 }}>
                 <Autocomplete
                   options={allPatients}
+                  openOnFocus
+                  autoHighlight
+                  selectOnFocus
+                  clearOnBlur={false}
                   getOptionLabel={(option) => {
                     if (typeof option === 'string') return option;
-                    return `${option.full_name} (${option.mobile_number}) ${option.patient_id ? `[${option.patient_id}]` : ''}`;
+                    return option.full_name || '';
                   }}
-                  value={allPatients.find(p => p.full_name.toLowerCase() === patientName.trim().toLowerCase()) || null}
+                  isOptionEqualToValue={(option, value) => {
+                    if (typeof value === 'string') return option.full_name.toLowerCase() === value.toLowerCase();
+                    return option.id === value?.id;
+                  }}
+                  filterOptions={(options, state) => {
+                    const q = state.inputValue.toLowerCase().trim();
+                    if (!q) return options;
+                    return options.filter(o => 
+                      o.full_name.toLowerCase().includes(q) ||
+                      (o.mobile_number && o.mobile_number.includes(q)) ||
+                      (o.patient_id && o.patient_id.toLowerCase().includes(q))
+                    );
+                  }}
+                  value={selectedPatient || allPatients.find(p => p.full_name.toLowerCase() === patientName.trim().toLowerCase()) || patientName}
                   onChange={(_event, newValue) => {
                     if (newValue && typeof newValue !== 'string') {
+                      // Selected existing patient from clinic records
+                      setSelectedPatient(newValue);
                       setPatientName(newValue.full_name);
-                      setPatientMobile(newValue.mobile_number);
+                      setPatientMobile(newValue.mobile_number || '');
                       const ageVal = newValue.date_of_birth
                         ? String(Math.floor((Date.now() - new Date(newValue.date_of_birth).getTime()) / (1000 * 60 * 60 * 24 * 365)))
                         : String(newValue.age || '');
@@ -490,26 +519,91 @@ export const QuickBill: React.FC = () => {
                       if (newValue.consulting_doctor_name) {
                         setDoctorName(cleanDoctorName(newValue.consulting_doctor_name));
                       }
+                    } else if (!newValue) {
+                      setSelectedPatient(null);
+                      setPatientName('');
+                      setPatientMobile('');
+                      setPatientAge('');
+                      setPatientGender('M');
+                    } else if (typeof newValue === 'string') {
+                      const match = allPatients.find(p => p.full_name.toLowerCase() === newValue.trim().toLowerCase());
+                      if (match) {
+                        setSelectedPatient(match);
+                        setPatientName(match.full_name);
+                        setPatientMobile(match.mobile_number || '');
+                        const ageVal = match.date_of_birth
+                          ? String(Math.floor((Date.now() - new Date(match.date_of_birth).getTime()) / (1000 * 60 * 60 * 24 * 365)))
+                          : String(match.age || '');
+                        setPatientAge(ageVal);
+                        setPatientGender(match.gender || 'M');
+                      } else {
+                        setSelectedPatient(null);
+                        setPatientName(newValue);
+                      }
                     }
                     setIsSaved(false);
                     setSavedBillNumber(null);
                     setSavedPatientId(null);
                   }}
                   freeSolo
-                  onInputChange={(_event, newInputValue) => {
-                    setPatientName(newInputValue);
-                    setIsSaved(false);
-                    setSavedBillNumber(null);
-                    setSavedPatientId(null);
+                  onInputChange={(_event, newInputValue, reason) => {
+                    if (reason === 'input') {
+                      setPatientName(newInputValue);
+                      const exactMatch = allPatients.find(p => p.full_name.toLowerCase() === newInputValue.trim().toLowerCase());
+                      if (exactMatch) {
+                        setSelectedPatient(exactMatch);
+                      } else {
+                        setSelectedPatient(null);
+                      }
+                      setIsSaved(false);
+                      setSavedBillNumber(null);
+                      setSavedPatientId(null);
+                    } else if (reason === 'clear') {
+                      setSelectedPatient(null);
+                      setPatientName('');
+                      setPatientMobile('');
+                      setPatientAge('');
+                    }
                   }}
+                  renderOption={(props, option) => (
+                    <li {...props} key={option.id}>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', width: '100%', py: 0.5 }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                            {option.full_name}
+                          </Typography>
+                          <Chip
+                            label={option.patient_id || 'PATIENT'}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                            sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700 }}
+                          />
+                        </Box>
+                        <Box sx={{ display: 'flex', gap: 1.5, mt: 0.5, flexWrap: 'wrap' }}>
+                          <Typography variant="caption" color="text.secondary">
+                            📞 {option.mobile_number || 'No contact'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            👤 {option.age ? `${option.age} Yrs` : ''} ({option.gender === 'M' ? 'Male' : option.gender === 'F' ? 'Female' : 'Other'})
+                          </Typography>
+                          {option.address && (
+                            <Typography variant="caption" color="text.secondary" noWrap sx={{ maxWidth: 180 }}>
+                              📍 {option.address}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                    </li>
+                  )}
                   renderInput={(params) => {
                     const p = params as any;
                     const inputProps = p.slotProps?.input || p.InputProps || {};
                     return (
                       <TextField
                         {...params}
-                        label="Select or Enter Patient Name"
-                        placeholder="Select existing patient or type name..."
+                        label="Select or Enter Patient Name *"
+                        placeholder="Click to select or start typing name/phone/ID..."
                         required
                         slotProps={{
                           input: {
@@ -532,11 +626,54 @@ export const QuickBill: React.FC = () => {
                             ),
                           },
                         }}
-                        helperText={matchedPatient ? "Profile found in registry. Click 'View History' to see past records & invoices." : "Select from past patient records or type a new name."}
+                        helperText={
+                          selectedPatient || matchedPatient
+                            ? `Selected from Clinic Records: ${(selectedPatient || matchedPatient)?.full_name} [${(selectedPatient || matchedPatient)?.patient_id || 'ID'}]. Invoice will be linked to this patient.`
+                            : "Click or search to select from clinic patient records, or type a new name."
+                        }
                       />
                     );
                   }}
                 />
+
+                {/* Linked Patient Status Banner */}
+                {(selectedPatient || matchedPatient) && (
+                  <Paper
+                    sx={{
+                      p: 1.5,
+                      mt: 1.5,
+                      bgcolor: '#F0FDFA',
+                      border: '1px solid #99F6E4',
+                      borderRadius: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 1,
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <CheckCircleIcon sx={{ color: '#0D9488', fontSize: 20 }} />
+                      <Box>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: '#0F766E', display: 'block' }}>
+                          Linked to: {(selectedPatient || matchedPatient)?.full_name} [{(selectedPatient || matchedPatient)?.patient_id || 'ID'}]
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                          Invoice will be saved directly into this patient's medical file.
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="primary"
+                      startIcon={<HistoryIcon />}
+                      onClick={() => setOpenHistoryDialog(true)}
+                      sx={{ textTransform: 'none', fontWeight: 600, fontSize: '0.7rem', py: 0.3, px: 1 }}
+                    >
+                      History
+                    </Button>
+                  </Paper>
+                )}
               </Grid>
 
               <Grid size={{ xs: 12, sm: 6 }}>
@@ -773,7 +910,7 @@ export const QuickBill: React.FC = () => {
                         )}
                       </Typography>
                       <Typography variant="caption" sx={{ display: 'block' }}>Age: <b>{patientAge ? `${patientAge} Yrs` : '—'}</b></Typography>
-                      <Typography variant="caption" sx={{ display: 'block' }}>Patient ID: <b>{savedPatientId || matchedPatient?.patient_id || 'New Patient'}</b></Typography>
+                      <Typography variant="caption" sx={{ display: 'block' }}>Patient ID: <b>{selectedPatient?.patient_id || matchedPatient?.patient_id || savedPatientId || 'New Patient'}</b></Typography>
                     </Grid>
                     <Grid size={{ xs: 6 }}>
                       <Typography variant="caption" sx={{ display: 'block' }}>Gender: <b>{patientGender === 'M' ? 'Male' : patientGender === 'F' ? 'Female' : 'Other'}</b></Typography>
