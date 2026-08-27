@@ -8,6 +8,7 @@ from django.utils import timezone
 from django.conf import settings
 from django.contrib.auth.hashers import make_password, check_password
 from pymongo import MongoClient
+import certifi
 
 # Setup MongoDB Client
 MONGO_URI = getattr(settings, 'MONGO_URI', os.getenv('MONGO_URI', 'mongodb://localhost:27017/'))
@@ -16,16 +17,38 @@ db_name = "dentflow_test" if "test" in sys.argv else MONGO_DB_NAME
 
 is_mock = False
 try:
-    client = MongoClient(MONGO_URI, uuidRepresentation='standard', serverSelectionTimeoutMS=5000)
+    if "mongodb+srv" in MONGO_URI:
+        client = MongoClient(
+            MONGO_URI,
+            uuidRepresentation='standard',
+            serverSelectionTimeoutMS=10000,
+            tlsCAFile=certifi.where()
+        )
+    else:
+        client = MongoClient(MONGO_URI, uuidRepresentation='standard', serverSelectionTimeoutMS=5000)
     client.admin.command('ping')
 except Exception as e:
     try:
-        import mongomock
-        client = mongomock.MongoClient()
-        is_mock = True
-        print(f"[DentFlow] MongoDB not reachable ({e}). Active storage: mongomock JSON-persisted engine.")
-    except ImportError:
-        client = MongoClient(MONGO_URI, uuidRepresentation='standard')
+        # Fallback for strict TLS or self-signed proxy if certifi fails
+        if "mongodb+srv" in MONGO_URI:
+            client = MongoClient(
+                MONGO_URI,
+                uuidRepresentation='standard',
+                serverSelectionTimeoutMS=10000,
+                tls=True,
+                tlsAllowInvalidCertificates=True
+            )
+            client.admin.command('ping')
+        else:
+            raise e
+    except Exception as e2:
+        try:
+            import mongomock
+            client = mongomock.MongoClient()
+            is_mock = True
+            print(f"[DentFlow] MongoDB not reachable ({e}). Active storage: mongomock JSON-persisted engine.")
+        except ImportError:
+            client = MongoClient(MONGO_URI, uuidRepresentation='standard')
 
 LOCAL_DB_FILE = os.path.join(settings.BASE_DIR, 'dentflow_local_db.json')
 

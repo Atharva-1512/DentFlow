@@ -97,7 +97,7 @@ WSGI_APPLICATION = 'dentflow.wsgi.application'
 # Database configuration with PostgreSQL support and SQLite fallback
 DATABASE_URL = os.getenv('DATABASE_URL')
 
-if DATABASE_URL:
+if DATABASE_URL and (DATABASE_URL.startswith('postgres://') or DATABASE_URL.startswith('postgresql://')):
     DATABASES = {
         'default': dj_database_url.config(
             default=DATABASE_URL,
@@ -106,8 +106,8 @@ if DATABASE_URL:
         )
     }
 else:
-    DB_ENGINE = os.getenv('DB_ENGINE', 'django.db.backends.postgresql')
-    if DB_ENGINE == 'django.db.backends.postgresql':
+    DB_ENGINE = os.getenv('DB_ENGINE', 'django.db.backends.sqlite3')
+    if DB_ENGINE == 'django.db.backends.postgresql' and os.getenv('DB_NAME') and os.getenv('DB_HOST') and os.getenv('DB_HOST') != 'localhost':
         DATABASES = {
             'default': {
                 'ENGINE': 'django.db.backends.postgresql',
