@@ -27,6 +27,14 @@ services:
         fromDatabase:
           name: dentflow-db
           property: connectionString
+      - key: MONGO_URI
+        sync: false
+      - key: MONGO_DB_NAME
+        value: "dentflow"
+      - key: DENTFLOW_WHATSAPP_NUMBER
+        value: "+919876543210"
+      - key: WHATSAPP_PROVIDER
+        value: "mock"
       - key: TRIAL_ENABLED
         value: "True"
       - key: TRIAL_DAYS
