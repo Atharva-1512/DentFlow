@@ -10,8 +10,19 @@ from django.contrib.auth.hashers import make_password, check_password
 from pymongo import MongoClient
 import certifi
 
+def sanitize_mongo_uri(raw_uri):
+    if not raw_uri:
+        return "mongodb://localhost:27017/"
+    uri = str(raw_uri).strip().strip("\"'")
+    uri = re.sub(r'^(MONGO_URI|MONGODB_URI)\s*=\s*', '', uri, flags=re.I)
+    uri = uri.strip().strip("\"'")
+    # Remove literal angle brackets around password if left by user
+    uri = re.sub(r':<([^>]+)>@', r':\1@', uri)
+    return uri
+
 # Setup MongoDB Client
-MONGO_URI = getattr(settings, 'MONGO_URI', os.getenv('MONGO_URI', 'mongodb://localhost:27017/'))
+raw_mongo_uri = getattr(settings, 'MONGO_URI', os.getenv('MONGO_URI', 'mongodb://localhost:27017/'))
+MONGO_URI = sanitize_mongo_uri(raw_mongo_uri)
 MONGO_DB_NAME = getattr(settings, 'MONGO_DB_NAME', os.getenv('MONGO_DB_NAME', 'dentflow'))
 db_name = "dentflow_test" if "test" in sys.argv else MONGO_DB_NAME
 

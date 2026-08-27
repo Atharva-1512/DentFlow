@@ -76,13 +76,16 @@ export const Register: React.FC = () => {
       await login(data.username, data.password);
       navigate('/dashboard');
     } catch (error: any) {
-      const backendError =
-        error.response?.data?.detail ||
-        error.response?.data?.mobile_number?.[0] ||
-        error.response?.data?.username?.[0] ||
-        error.response?.data?.email?.[0] ||
-        'Registration failed. Please try again.';
-      setErrorMessage(backendError);
+      let backendError = error.response?.data?.detail;
+      if (!backendError && error.response?.data && typeof error.response.data === 'object') {
+        const errorEntries = Object.entries(error.response.data);
+        if (errorEntries.length > 0) {
+          const [field, messages] = errorEntries[0];
+          const msg = Array.isArray(messages) ? messages[0] : String(messages);
+          backendError = `${field.replace('_', ' ')}: ${msg}`;
+        }
+      }
+      setErrorMessage(backendError || 'Registration failed. Please check your details and try again.');
     }
   };
 
