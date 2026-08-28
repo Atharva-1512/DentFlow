@@ -75,15 +75,17 @@ def run_full_system_audit():
     print("\n--- 1. Testing Registration, Authentication & Clinic Setup ---")
     test_email = f"audit_dentist_{uuid.uuid4().hex[:6]}@dentflow.test"
     test_username = f"audit_doc_{uuid.uuid4().hex[:6]}"
+    test_clinic_name = f"SmileCraft Dental Lounge {uuid.uuid4().hex[:6]}"
     test_password = "SecurePassword123!"
+    test_phone = f"98{uuid.uuid4().int % 100000000:08d}"
     
     user_doc = create_user(
         email=test_email,
         username=test_username,
         password=test_password,
         role="CLINIC_OWNER",
-        clinic_name="SmileCraft Dental Lounge",
-        mobile_number="9876543210",
+        clinic_name=test_clinic_name,
+        mobile_number=test_phone,
         address="102 Horizon Towers, Pune",
         dci_number="DCI-MH-2026-987",
         gst_number="27ABCDE1234F1Z5",
@@ -93,10 +95,26 @@ def run_full_system_audit():
     assert_true(user_doc is not None, "User & Clinic successfully created in MongoDB")
     user_id = user_doc.id
 
-    # Verify retrieval by username/email
+    # Verify retrieval by username/email/clinic/phone
     fetched_user = get_user_by_email_or_username(test_username)
     assert_true(fetched_user.email == test_email, "User retrieved by username")
-    assert_true(fetched_user.clinic.name == "SmileCraft Dental Lounge", "Clinic name stored accurately")
+    assert_true(fetched_user.clinic.name == test_clinic_name, "Clinic name stored accurately")
+
+    from django.contrib.auth import authenticate
+    auth_by_user = authenticate(username=test_username, password=test_password)
+    assert_true(auth_by_user is not None and auth_by_user.id == user_id, "Authenticated successfully using Username")
+
+    auth_by_email = authenticate(username=test_email, password=test_password)
+    assert_true(auth_by_email is not None and auth_by_email.id == user_id, "Authenticated successfully using Email")
+
+    auth_by_clinic = authenticate(username=test_clinic_name, password=test_password)
+    assert_true(auth_by_clinic is not None and auth_by_clinic.id == user_id, "Authenticated successfully using Clinic Name")
+
+    auth_by_phone = authenticate(username=test_phone, password=test_password)
+    assert_true(auth_by_phone is not None and auth_by_phone.id == user_id, "Authenticated successfully using Phone Number")
+
+    auth_by_spaced = authenticate(username=f" {test_username} ", password=test_password)
+    assert_true(auth_by_spaced is not None and auth_by_spaced.id == user_id, "Authenticated successfully with trailing/leading spaces")
 
     # Update Clinic Settings (Doctors Directory, Procedure Catalog, Working Hours)
     clinic_update_data = {

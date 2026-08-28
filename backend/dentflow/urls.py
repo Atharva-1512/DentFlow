@@ -16,11 +16,23 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.http import JsonResponse
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from subscriptions.views import RazorpayWebhookView
 
+def health_check(request):
+    return JsonResponse({
+        "status": "healthy",
+        "service": "DentFlow Multi-Tenant Backend",
+        "version": "1.0.0"
+    })
+
 urlpatterns = [
+    # Health checks for Render & uptime monitoring
+    path('', health_check, name='root_health_check'),
+    path('health/', health_check, name='health_check'),
+
     path('admin/', admin.site.urls),
     
     # JWT authentication paths

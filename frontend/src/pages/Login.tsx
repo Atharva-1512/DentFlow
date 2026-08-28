@@ -17,7 +17,7 @@ import { Visibility, VisibilityOff, Email as EmailIcon, Lock as LockIcon } from 
 import { useAuth } from '../context/AuthContext';
 
 const loginSchema = zod.object({
-  email: zod.string().min(1, 'Username or Email is required'),
+  email: zod.string().min(1, 'Username, Email or Clinic Name is required'),
   password: zod.string().min(6, 'Password must be at least 6 characters'),
 });
 
@@ -40,12 +40,12 @@ export const Login: React.FC = () => {
   const onSubmit = async (data: LoginFormData) => {
     setErrorMessage(null);
     try {
-      // Map email form field to username in simple-jwt login payload
-      await login(data.email, data.password);
+      // Pass trimmed identifier (username, email, or clinic name) to login
+      await login(data.email.trim(), data.password);
       navigate('/dashboard');
     } catch (error: any) {
       console.error(error);
-      const backendError = error.response?.data?.detail || 'Invalid username or password. Please try again.';
+      const backendError = error.response?.data?.detail || 'Invalid credentials. Please try again.';
       setErrorMessage(backendError);
     }
   };
@@ -73,7 +73,8 @@ export const Login: React.FC = () => {
       <form onSubmit={handleSubmit(onSubmit)} noValidate>
         <TextField
           {...register('email')}
-          label="Username or Email"
+          label="Username, Email or Clinic Name"
+          placeholder="e.g. Tanpure Dental or doctor@clinic.com"
           fullWidth
           margin="normal"
           error={!!errors.email}

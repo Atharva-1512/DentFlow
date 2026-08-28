@@ -31,7 +31,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, view, onClose, onVie
 
     if (isLogin) {
       try {
-        await login(email, password);
+        await login(email.trim(), password);
         setSuccess('Welcome back! Redirecting to your dashboard...');
         setTimeout(() => {
           onClose();
@@ -39,7 +39,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, view, onClose, onVie
           navigate('/dashboard');
         }, 800);
       } catch (err: any) {
-        setError(err?.response?.data?.detail || err?.message || 'Invalid email or password. Please try again.');
+        setError(err?.response?.data?.detail || err?.message || 'Invalid credentials. Please try again.');
         setLoading(false);
       }
     } else {
@@ -133,7 +133,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, view, onClose, onVie
 
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Username or Email</label>
+                    <label className="block text-sm font-medium text-slate-700 mb-1.5">Username, Email or Clinic Name</label>
                     <div className="relative">
                       <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                       <input
@@ -141,7 +141,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ open, view, onClose, onVie
                         required
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="doctor@clinic.com"
+                        placeholder="e.g. Tanpure Dental or doctor@clinic.com"
                         className="w-full rounded-xl border border-slate-200 bg-white/70 pl-11 pr-4 py-3 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
                       />
                     </div>

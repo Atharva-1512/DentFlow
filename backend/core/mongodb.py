@@ -40,26 +40,39 @@ try:
     client.admin.command('ping')
 except Exception as e:
     try:
-        # Fallback for strict TLS or self-signed proxy if certifi fails
+        # Fallback 1: System root certificates without explicit certifi
         if "mongodb+srv" in MONGO_URI:
             client = MongoClient(
                 MONGO_URI,
                 uuidRepresentation='standard',
-                serverSelectionTimeoutMS=10000,
-                tls=True,
-                tlsAllowInvalidCertificates=True
+                serverSelectionTimeoutMS=10000
             )
             client.admin.command('ping')
         else:
             raise e
     except Exception as e2:
         try:
-            import mongomock
-            client = mongomock.MongoClient()
-            is_mock = True
-            print(f"[DentFlow] MongoDB not reachable ({e}). Active storage: mongomock JSON-persisted engine.")
-        except ImportError:
-            client = MongoClient(MONGO_URI, uuidRepresentation='standard')
+            # Fallback 2: Allow invalid certificates / proxy SSL inspection
+            if "mongodb+srv" in MONGO_URI:
+                client = MongoClient(
+                    MONGO_URI,
+                    uuidRepresentation='standard',
+                    serverSelectionTimeoutMS=10000,
+                    tls=True,
+                    tlsAllowInvalidCertificates=True
+                )
+                client.admin.command('ping')
+            else:
+                raise e2
+        except Exception as e3:
+            try:
+                import mongomock
+                client = mongomock.MongoClient()
+                is_mock = True
+                print(f"[DentFlow] MongoDB Atlas connection failed ({e3}). Active storage: mongomock JSON-persisted engine.")
+                print(f"[DentFlow TIP] On MongoDB Atlas Dashboard -> Network Access -> Add IP Address -> 'Allow Access from Anywhere' (0.0.0.0/0).")
+            except ImportError:
+                client = MongoClient(MONGO_URI, uuidRepresentation='standard')
 
 LOCAL_DB_FILE = os.path.join(settings.BASE_DIR, 'dentflow_local_db.json')
 
@@ -248,14 +261,70 @@ def get_user_by_id(user_id):
     return MongoUser(doc) if doc else None
 
 
+def get_users_by_identifier(identifier):
+    """
+    Finds all potential user documents matching an identifier by:
+    1. Username (exact, case-insensitive, or alphanumeric stripped)
+    2. Email (exact, case-insensitive)
+    3. Clinic Name (exact, case-insensitive)
+    4. Clinic Slug (exact, case-insensitive)
+    5. Contact / WhatsApp Mobile Number
+    """
+    if not identifier:
+        return []
+    
+    clean_id = str(identifier).strip()
+    if not clean_id:
+        return []
+        
+    slug_id = re.sub(r'[^a-zA-Z0-9]+', '-', clean_id.lower()).strip('-')
+    alphanumeric_id = re.sub(r'[^a-zA-Z0-9]', '', clean_id.lower())
+    digits_id = re.sub(r'\D', '', clean_id)
+    last_10_digits = digits_id[-10:] if len(digits_id) >= 10 else None
+
+    query_conditions = [
+        {"username": {"$regex": f"^{re.escape(clean_id)}$", "$options": "i"}},
+        {"email": {"$regex": f"^{re.escape(clean_id)}$", "$options": "i"}},
+        {"clinic.name": {"$regex": f"^{re.escape(clean_id)}$", "$options": "i"}},
+        {"clinic.slug": {"$regex": f"^{re.escape(clean_id)}$", "$options": "i"}},
+    ]
+
+    if slug_id and slug_id != clean_id.lower():
+        query_conditions.append({"clinic.slug": {"$regex": f"^{re.escape(slug_id)}$", "$options": "i"}})
+        query_conditions.append({"username": {"$regex": f"^{re.escape(slug_id)}$", "$options": "i"}})
+
+    if alphanumeric_id and alphanumeric_id != clean_id.lower():
+        query_conditions.append({"username": {"$regex": f"^{re.escape(alphanumeric_id)}$", "$options": "i"}})
+        query_conditions.append({"clinic.slug": {"$regex": f"^{re.escape(alphanumeric_id)}$", "$options": "i"}})
+
+    if last_10_digits:
+        query_conditions.append({"clinic.notification_whatsapp_number": {"$regex": f"{re.escape(last_10_digits)}$"}})
+
+    docs = list(db.users.find({"$or": query_conditions}))
+    
+    # Check if alphanumeric identifier matches alphanumeric username or clinic name in db
+    if alphanumeric_id:
+        all_users = list(db.users.find({}))
+        for u in all_users:
+            u_user = re.sub(r'[^a-zA-Z0-9]', '', str(u.get('username', '')).lower())
+            u_clinic = re.sub(r'[^a-zA-Z0-9]', '', str(u.get('clinic', {}).get('name', '') if u.get('clinic') else '').lower())
+            if alphanumeric_id in (u_user, u_clinic) and u not in docs:
+                docs.append(u)
+
+    seen_ids = set()
+    unique_users = []
+    for doc in docs:
+        doc_id = str(doc.get('_id'))
+        if doc_id not in seen_ids:
+            seen_ids.add(doc_id)
+            unique_users.append(MongoUser(doc))
+
+    return unique_users
+
+
 def get_user_by_email_or_username(username_or_email):
-    doc = db.users.find_one({
-        "$or": [
-            {"username": {"$regex": f"^{re.escape(username_or_email)}$", "$options": "i"}},
-            {"email": {"$regex": f"^{re.escape(username_or_email)}$", "$options": "i"}}
-        ]
-    })
-    return MongoUser(doc) if doc else None
+    users = get_users_by_identifier(username_or_email)
+    return users[0] if users else None
 
 
 def get_user_by_clinic_id(clinic_id):
@@ -343,44 +412,48 @@ def create_user(email, username, password, role, clinic_name, mobile_number, add
 
 
 def init_local_db():
-    if not is_mock or "test" in sys.argv:
+    if "test" in sys.argv:
         return
-    if os.path.exists(LOCAL_DB_FILE):
-        try:
-            with open(LOCAL_DB_FILE, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            if "users" in data and data["users"]:
-                for u in data["users"]:
-                    client[db_name].users.insert_one(u)
-            if "subscription_events" in data and data["subscription_events"]:
-                for e in data["subscription_events"]:
-                    client[db_name].subscription_events.insert_one(e)
-            return
-        except Exception as e:
-            print(f"[DentFlow] Error loading local mock DB: {e}")
-    # If no local db exists yet, seed initial admin and doctor
     try:
-        if not client[db_name].users.find_one({"username": "admin"}):
-            create_user(
-                email="admin@dentflow.com",
-                username="admin",
-                password="password123",
-                role="SUPER_ADMIN",
-                clinic_name="DentFlow Admin",
-                mobile_number="+919999999999",
-                address="DentFlow HQ"
-            )
-        if not client[db_name].users.find_one({"username": "doctor"}):
-            create_user(
-                email="doctor@dentflow.com",
-                username="doctor",
-                password="password123",
-                role="CLINIC_OWNER",
-                clinic_name="DentFlow Dental Care",
-                mobile_number="+919876543210",
-                address="123 Dental Clinic Road"
-            )
-        save_mock_db()
+        user_count = client[db_name].users.count_documents({}) if hasattr(client[db_name].users, 'count_documents') else client[db_name].users.count()
+        if user_count == 0:
+            if os.path.exists(LOCAL_DB_FILE):
+                try:
+                    with open(LOCAL_DB_FILE, 'r', encoding='utf-8') as f:
+                        data = json.load(f)
+                    if "users" in data and data["users"]:
+                        for u in data["users"]:
+                            client[db_name].users.insert_one(u)
+                    if "subscription_events" in data and data["subscription_events"]:
+                        for e in data["subscription_events"]:
+                            client[db_name].subscription_events.insert_one(e)
+                    print("[DentFlow] Database initialized with snapshot data.")
+                    return
+                except Exception as e:
+                    print(f"[DentFlow] Error loading snapshot DB: {e}")
+
+            # If no local db exists yet, seed initial admin and doctor
+            if not client[db_name].users.find_one({"username": "admin"}):
+                create_user(
+                    email="admin@dentflow.com",
+                    username="admin",
+                    password="password123",
+                    role="SUPER_ADMIN",
+                    clinic_name="DentFlow Admin",
+                    mobile_number="+919999999999",
+                    address="DentFlow HQ"
+                )
+            if not client[db_name].users.find_one({"username": "doctor"}):
+                create_user(
+                    email="doctor@dentflow.com",
+                    username="doctor",
+                    password="password123",
+                    role="CLINIC_OWNER",
+                    clinic_name="DentFlow Dental Care",
+                    mobile_number="+919876543210",
+                    address="123 Dental Clinic Road"
+                )
+            save_mock_db()
     except Exception as e:
         print(f"[DentFlow] Auto-seed warning: {e}")
 

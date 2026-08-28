@@ -31,7 +31,14 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-72=^xdoap%+yyfb#7izsb!wlfa
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
+raw_allowed_hosts = os.getenv('ALLOWED_HOSTS', '*')
+if raw_allowed_hosts.strip() == '*':
+    ALLOWED_HOSTS = ['*']
+else:
+    ALLOWED_HOSTS = [h.strip() for h in raw_allowed_hosts.split(',') if h.strip()]
+    for fallback_host in ['127.0.0.1', 'localhost', '0.0.0.0', '.onrender.com']:
+        if fallback_host not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(fallback_host)
 
 
 # Application definition
@@ -172,9 +179,28 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
-# CORS configuration
-CORS_ALLOW_ALL_ORIGINS = True  # In production, restrict to frontend domain
+# Reverse Proxy Header for Render & Load Balancers
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# CORS configuration for Vercel <-> Render
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'x-impersonate-clinic',
+]
+
+# CSRF Trusted Origins for Vercel & Render
+raw_csrf = os.getenv('CSRF_TRUSTED_ORIGINS', 'https://*.onrender.com,https://*.vercel.app,http://localhost:5173,http://localhost:3000')
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in raw_csrf.split(',') if origin.strip()]
 
 
 # DRF & JWT Configuration

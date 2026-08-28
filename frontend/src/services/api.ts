@@ -14,8 +14,21 @@ export const navigationRef = {
   },
 };
 
+// Compute robust base URL for Vercel <-> Render cross-deployment
+const getBaseUrl = (): string => {
+  const envUrl = import.meta.env.VITE_API_URL as string | undefined;
+  if (!envUrl || envUrl.trim() === '') {
+    return '/api';
+  }
+  let url = envUrl.trim().replace(/\/+$/, '');
+  if (url !== '/api' && !url.endsWith('/api')) {
+    url = `${url}/api`;
+  }
+  return url;
+};
+
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '/api',
+  baseURL: getBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
