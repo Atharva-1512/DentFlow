@@ -10,15 +10,18 @@ class RecipientType(models.TextChoices):
 
 
 class NotificationType(models.TextChoices):
+    PATIENT_REMINDER_24HR = 'PATIENT_REMINDER_24HR', 'Patient 24-Hour Reminder'
     PATIENT_REMINDER_3HR = 'PATIENT_REMINDER_3HR', 'Patient 3-Hour Reminder'
     CLINIC_TOMORROW_SUMMARY = 'CLINIC_TOMORROW_SUMMARY', 'Clinic Tomorrow Summary (7 PM IST)'
     PATIENT_SAME_DAY = 'PATIENT_SAME_DAY', 'Patient Same Day Reminder'
     CLINIC_PREV_DAY = 'CLINIC_PREV_DAY', 'Clinic Previous Day Summary'
     CLINIC_SAME_DAY = 'CLINIC_SAME_DAY', 'Clinic Same Day Summary'
+    CAMPAIGN_BROADCAST = 'CAMPAIGN_BROADCAST', 'Campaign Broadcast'
 
 
 class ReminderSlot(models.TextChoices):
     """Identifies WHEN a reminder is scheduled relative to the appointment."""
+    HOURS_BEFORE_24 = '24_HOURS_BEFORE', '24 Hours Before Appointment'
     HOURS_BEFORE_3 = '3_HOURS_BEFORE', '3 Hours Before Appointment'
     DAY_BEFORE = 'DAY_BEFORE', 'Evening before appointment (7 PM IST)'
     SAME_DAY = 'SAME_DAY', 'Morning of appointment (7 AM IST)'
@@ -247,3 +250,42 @@ class NotificationLog(TenantModel):
     def __str__(self):
         status = "Sent" if self.sent else "Pending"
         return f"{self.notification_type} to {self.recipient_value} - {status}"
+
+
+# ─── Campaign Broadcast Model ─────────────────────────────────────────────────
+
+class CampaignBroadcast(TenantModel):
+    """
+    Tracks marketing / festival broadcasts (e.g. Happy Diwali, New Year)
+    sent by a clinic to their patient base via the centralized DentFlow gateway.
+    """
+    title = models.CharField(max_length=255)
+    template_type = models.CharField(max_length=50, default='CUSTOM')
+    message_body = models.TextField()
+    target_audience = models.CharField(max_length=50, default='ALL_PATIENTS')
+    total_recipients = models.PositiveIntegerField(default=0)
+    sent_count = models.PositiveIntegerField(default=0)
+    failed_count = models.PositiveIntegerField(default=0)
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ('PENDING', 'Pending'),
+            ('IN_PROGRESS', 'In Progress'),
+            ('COMPLETED', 'Completed'),
+            ('FAILED', 'Failed'),
+        ],
+        default='COMPLETED',
+        db_index=True
+    )
+    completed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['clinic', 'status']),
+            models.Index(fields=['created_at']),
+        ]
+
+    def __str__(self):
+        return f"Campaign: {self.title} ({self.clinic.name}) - {self.sent_count}/{self.total_recipients} sent"
+

@@ -12,8 +12,8 @@ class Command(BaseCommand):
     help = (
         'DentFlow Centralized WhatsApp Notification Engine.\n'
         '1. Evening 7 PM IST (--slot evening): Sends tomorrow\'s clinic summary with treatments, '
-        'and prepares 3-hour prior patient reminders.\n'
-        '2. Periodic (--slot dispatch): Dispatches all patient reminders due 3 hours before appointment time.'
+        'and prepares 24-hour prior patient reminders.\n'
+        '2. Periodic (--slot dispatch): Dispatches all patient reminders due before appointment time.'
     )
 
     def add_arguments(self, parser):
@@ -55,10 +55,10 @@ class Command(BaseCommand):
         self.stdout.write("--- Evening Slot (7:00 PM IST) ---")
         tomorrow = target_date + datetime.timedelta(days=1)
 
-        # 1. Pre-generate tomorrow's patient 3-hour reminders
+        # 1. Pre-generate tomorrow's patient 24-hour reminders
         patient_count = generate_patient_reminders(tomorrow)
         self.stdout.write(self.style.SUCCESS(
-            f"  Generated {patient_count} patient 3-hour reminders for tomorrow ({tomorrow})."
+            f"  Generated {patient_count} patient reminders for tomorrow ({tomorrow})."
         ))
 
         # 2. Generate and queue clinic summary for tomorrow's appointments
@@ -68,9 +68,10 @@ class Command(BaseCommand):
         ))
 
     def _run_morning_slot(self, target_date):
-        """7 AM IST: Ensures today's appointments are queued for 3-hour prior reminder."""
+        """7 AM IST: Ensures today's appointments are queued for reminders."""
         self.stdout.write("--- Morning Slot (7:00 AM IST) ---")
         patient_count = generate_patient_reminders(target_date)
         self.stdout.write(self.style.SUCCESS(
-            f"  Queued {patient_count} patient 3-hour reminders for today ({target_date})."
+            f"  Queued {patient_count} patient reminders for today ({target_date})."
         ))
+

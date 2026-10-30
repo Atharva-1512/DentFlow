@@ -53,6 +53,17 @@ def get_template(clinic, template_type: str) -> NotificationTemplate:
         return tmpl
 
     defaults = {
+        NotificationType.PATIENT_REMINDER_24HR: (
+            "Hello {{patient_name}} 👋\n\n"
+            "This is a reminder from *DentFlow* that you have a dental appointment tomorrow!\n\n"
+            "🗓 *Date:* {{appointment_date}}\n"
+            "⏰ *Time:* {{appointment_time}}\n"
+            "👨‍⚕️ *Doctor:* {{doctor}}\n"
+            "🏥 *Clinic:* {{clinic_name}}\n"
+            "📍 *Address:* {{clinic_address}}\n"
+            "🦷 *Treatment/Purpose:* {{treatment}}\n\n"
+            "Please arrive 10 minutes before your scheduled time."
+        ),
         NotificationType.PATIENT_REMINDER_3HR: (
             "Hello {{patient_name}} 👋\n\n"
             "This is a reminder from *DentFlow* that you have a dental appointment in 3 hours!\n\n"
@@ -118,16 +129,19 @@ def _clinic_is_eligible(clinic: Clinic) -> bool:
         return False
 
 
-# ─── Patient 3-Hour Reminder Generation ───────────────────────────────────────
+# ─── Patient Automated Reminder Generation (24-Hour Default) ───────────────────
 
 def generate_patient_reminders(target_date: datetime.date) -> int:
     """
-    Create 3-Hour ReminderHistory entries for every SCHEDULED appointment on target_date.
-    Scheduled time is dynamically calculated as: (appointment_date + appointment_time) - 3 hours.
+    Create automated ReminderHistory entries for every SCHEDULED appointment on target_date.
+    Scheduled time is dynamically calculated based on settings.PATIENT_REMINDER_HOURS_PRIOR (default: 24 hours prior).
     Skips duplicates silently (unique constraint).
 
     Returns: number of new reminders created.
     """
+    from django.conf import settings
+    hours_prior = getattr(settings, 'PATIENT_REMINDER_HOURS_PRIOR', 24)
+
     appointments = (
         Appointment.objects
         .filter(appointment_date=target_date, status='SCHEDULED')
@@ -142,14 +156,21 @@ def generate_patient_reminders(target_date: datetime.date) -> int:
         # Combine date + time into IST timezone-aware datetime
         naive_dt = datetime.datetime.combine(appt.appointment_date, appt.appointment_time)
         appt_ist_dt = naive_dt.replace(tzinfo=IST)
-        # Schedule reminder exactly 3 hours before the appointment
-        scheduled_at = appt_ist_dt - datetime.timedelta(hours=3)
+        # Schedule reminder X hours before the appointment (default 24h)
+        scheduled_at = appt_ist_dt - datetime.timedelta(hours=hours_prior)
 
         # Determine treatment description (reason or procedure type)
         treatment = appt.appointment_reason.strip() if appt.appointment_reason else appt.get_appointment_type_display()
         clinic_address = appt.clinic.address.strip() if appt.clinic.address else "Address on file"
 
-        template = get_template(appt.clinic, NotificationType.PATIENT_REMINDER_3HR)
+        if hours_prior >= 24:
+            template_type = NotificationType.PATIENT_REMINDER_24HR
+            slot = getattr(ReminderSlot, 'HOURS_BEFORE_24', ReminderSlot.HOURS_BEFORE_3)
+        else:
+            template_type = NotificationType.PATIENT_REMINDER_3HR
+            slot = ReminderSlot.HOURS_BEFORE_3
+
+        template = get_template(appt.clinic, template_type)
         context = {
             'patient_name': appt.patient.full_name,
             'appointment_time': appt.appointment_time.strftime('%I:%M %p'),
@@ -160,9 +181,6 @@ def generate_patient_reminders(target_date: datetime.date) -> int:
             'treatment': treatment,
         }
         message = interpolate_template(template.body, context)
-
-        # Slot preference: HOURS_BEFORE_3 (fallback to SAME_DAY if slot enum constraints apply)
-        slot = getattr(ReminderSlot, 'HOURS_BEFORE_3', ReminderSlot.SAME_DAY)
 
         try:
             ReminderHistory.objects.create(
@@ -178,7 +196,7 @@ def generate_patient_reminders(target_date: datetime.date) -> int:
         except IntegrityError:
             pass  # Already scheduled for this appointment+slot+target
 
-    logger.info(f"[generate_patient_reminders] Created {count} 3-hour prior patient reminders for {target_date}")
+    logger.info(f"[generate_patient_reminders] Created {count} {hours_prior}-hour prior patient reminders for {target_date}")
     return count
 
 
@@ -329,4 +347,150 @@ def dispatch_pending_reminders() -> dict:
 
     logger.info(f"[dispatch_pending_reminders] Dispatch results: {results}")
     return results
+
+
+# ─── Campaign & Festival Broadcast Dispatcher ────────────────────────────────
+
+def dispatch_campaign_broadcast(clinic, title: str, message_body: str, audience: str = 'ALL_PATIENTS', template_type: str = 'CUSTOM', user_id: str = None) -> dict:
+    """
+    Sends personalized festival greetings or custom broadcasts to patients of a clinic.
+    Includes anti-ban rate limiting throttling (delay between messages).
+    """
+    import time
+    from django.conf import settings
+    from clinics.models import Clinic as SqlClinic
+    from .models import CampaignBroadcast
+
+    delay = getattr(settings, 'WHATSAPP_BROADCAST_DELAY_SECONDS', 2.0)
+    provider = DentFlowWhatsAppProvider()
+
+    clinic_id = getattr(clinic, 'id', None)
+    clinic_name = getattr(clinic, 'name', 'DentFlow Clinic')
+    clinic_address = getattr(clinic, 'address', '')
+
+    # 1. Fetch Patients (MongoDB primary, SQL fallback)
+    raw_patients = []
+    if user_id:
+        try:
+            from core.mongodb import get_patients
+            data = get_patients(str(user_id), page=1, page_size=10000)
+            for p in data.get('results', []):
+                mob = str(p.get('mobile_number', '')).strip()
+                if mob:
+                    raw_patients.append({
+                        'full_name': p.get('full_name', 'Patient'),
+                        'mobile_number': mob,
+                        'created_at': p.get('created_at'),
+                    })
+        except Exception:
+            pass
+
+    if not raw_patients and clinic_id:
+        try:
+            from patients.models import Patient
+            sql_patients = Patient.objects.filter(clinic_id=clinic_id, is_deleted=False).exclude(mobile_number='')
+            for p in sql_patients:
+                raw_patients.append({
+                    'full_name': p.full_name,
+                    'mobile_number': str(p.mobile_number).strip(),
+                    'created_at': p.created_at,
+                })
+        except Exception:
+            pass
+
+    total = len(raw_patients)
+
+    # 2. Resolve SQL Clinic for CampaignBroadcast relation
+    sql_clinic = None
+    if isinstance(clinic, SqlClinic):
+        sql_clinic = clinic
+    elif clinic_id:
+        try:
+            sql_clinic, _ = SqlClinic.objects.get_or_create(
+                id=clinic_id,
+                defaults={
+                    'name': clinic_name,
+                    'address': clinic_address,
+                    'notification_whatsapp_number': getattr(clinic, 'notification_whatsapp_number', ''),
+                }
+            )
+        except Exception:
+            sql_clinic = SqlClinic.objects.filter(id=clinic_id).first()
+
+    campaign = None
+    if sql_clinic:
+        try:
+            campaign = CampaignBroadcast.objects.create(
+                clinic=sql_clinic,
+                title=title,
+                template_type=template_type,
+                message_body=message_body,
+                target_audience=audience,
+                total_recipients=total,
+                status='IN_PROGRESS',
+            )
+        except Exception as e:
+            logger.warning(f"Could not persist CampaignBroadcast in SQL: {e}")
+
+    sent = 0
+    failed = 0
+
+    # 3. Determine doctor name for interpolation
+    doctor_name = "Doctor"
+    if hasattr(clinic, 'data') and isinstance(clinic.data, dict):
+        docs = clinic.data.get('doctors', [])
+        if docs and len(docs) > 0:
+            doctor_name = docs[0].get('name', 'Doctor')
+    elif hasattr(clinic, 'users'):
+        try:
+            first_owner = clinic.users.filter(role='CLINIC_OWNER').first()
+            if first_owner:
+                doctor_name = f"{first_owner.first_name} {first_owner.last_name}".strip() or first_owner.username
+        except Exception:
+            pass
+
+    # 4. Dispatch messages with anti-ban delay
+    for i, pat in enumerate(raw_patients):
+        context = {
+            'patient_name': pat['full_name'],
+            'clinic_name': clinic_name,
+            'doctor_name': doctor_name,
+            'doctor': doctor_name,
+            'clinic_address': clinic_address or '',
+        }
+        personalized_text = interpolate_template(message_body, context)
+
+        try:
+            provider.send_whatsapp_message(
+                to_number=pat['mobile_number'],
+                body=personalized_text
+            )
+            sent += 1
+        except Exception as e:
+            logger.error(f"[Campaign Broadcast] Failed to send to {pat['mobile_number']}: {e}")
+            failed += 1
+
+        if i < total - 1 and delay > 0 and provider.provider_type != 'mock':
+            time.sleep(delay)
+
+    if campaign:
+        try:
+            campaign.sent_count = sent
+            campaign.failed_count = failed
+            campaign.status = 'COMPLETED' if failed < total else 'FAILED'
+            campaign.completed_at = timezone.now()
+            campaign.save(update_fields=['sent_count', 'failed_count', 'status', 'completed_at'])
+        except Exception:
+            pass
+
+    logger.info(f"[dispatch_campaign_broadcast] Completed broadcast '{title}': {sent}/{total} sent, {failed} failed.")
+    return {
+        'campaign_id': str(campaign.id) if campaign else 'local_campaign',
+        'title': title,
+        'total': total,
+        'sent': sent,
+        'failed': failed,
+        'status': 'COMPLETED' if failed < total else 'FAILED',
+    }
+
 

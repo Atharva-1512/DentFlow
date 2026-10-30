@@ -393,15 +393,15 @@ def run_full_system_audit():
         }
     )
 
-    # Test 3-Hour Prior Patient Reminder Generation
+    # Test Automated Patient Reminder Generation (24-Hour Default)
     patient_reminders_count = generate_patient_reminders(target_date=tomorrow_date)
-    assert_true(patient_reminders_count >= 1, "3-Hour prior patient reminder generated for tomorrow")
+    assert_true(patient_reminders_count >= 1, "Patient reminder generated for tomorrow")
     rem_p = ReminderHistory.objects.filter(appointment=sql_appt).first()
     assert_true(rem_p is not None, "ReminderHistory record found for appointment")
     assert_true("DentFlow Premier Clinic" in rem_p.message, "Patient reminder includes Clinic Name")
     assert_true("404 Smile Avenue, Baner, Pune" in rem_p.message, "Patient reminder includes Clinic Address")
     assert_true("Root Canal Treatment (RCT)" in rem_p.message, "Patient reminder includes Treatment details")
-    assert_true(rem_p.slot == ReminderSlot.HOURS_BEFORE_3, "Reminder slot is HOURS_BEFORE_3")
+    assert_true(rem_p.slot == ReminderSlot.HOURS_BEFORE_24, "Reminder slot is HOURS_BEFORE_24")
 
     # Test 7:00 PM Clinic Evening Summary Generation (where target_date is today and appt is tomorrow)
     today_date = timezone.now().date()

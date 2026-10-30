@@ -5,6 +5,7 @@ All notifications (patient 3-hour reminders and clinic evening summaries)
 are sent exclusively from the centralized DentFlow WhatsApp number.
 """
 
+import re
 import uuid
 import logging
 import requests
@@ -108,26 +109,49 @@ class DentFlowWhatsAppProvider(BaseWhatsAppProvider):
         return data.get('sid', 'twilio_msg_sent')
 
     def _send_gateway(self, to_number: str, body: str) -> str:
-        url = getattr(settings, 'WHATSAPP_GATEWAY_URL', '')
+        base_url = getattr(settings, 'WHATSAPP_GATEWAY_URL', '').rstrip('/')
         secret = getattr(settings, 'WHATSAPP_GATEWAY_SECRET', '')
+        instance_name = getattr(settings, 'WHATSAPP_INSTANCE_NAME', 'dentflow')
 
-        if not url:
-            raise RuntimeError("WHATSAPP_GATEWAY_URL is not set.")
+        if not base_url:
+            raise RuntimeError("WHATSAPP_GATEWAY_URL is not configured in settings or .env.")
+
+        # Sanitize number: Evolution API and WhatsApp web expect numeric digits (e.g. 919876543210)
+        digits_only = re.sub(r'\D', '', str(to_number))
+        if len(digits_only) == 10:
+            digits_only = f"91{digits_only}"  # Default India country code if 10 digits
+
+        # Determine target URL:
+        # If the user supplied a general server base URL like http://localhost:8080 or https://evo.myclinic.com
+        if '/message/' not in base_url and not base_url.endswith('/send'):
+            target_url = f"{base_url}/message/sendText/{instance_name}"
+        else:
+            target_url = base_url
 
         headers = {
             'Content-Type': 'application/json',
+            'apikey': secret,
             'X-Gateway-Secret': secret,
         }
+        if secret:
+            headers['Authorization'] = f"Bearer {secret}"
+
+        # Evolution API payload schema + generic webhook schema compatibility
         payload = {
-            'sender': self.sender_number,
-            'to': to_number,
+            'number': digits_only,
+            'text': body,
+            'to': digits_only,
             'body': body,
+            'sender': self.sender_number,
         }
 
-        resp = requests.post(url, json=payload, headers=headers, timeout=20)
+        resp = requests.post(target_url, json=payload, headers=headers, timeout=25)
         resp.raise_for_status()
         data = resp.json()
-        return data.get('message_id', data.get('id', 'gateway_msg_sent'))
+        
+        # Extract message ID across Evolution API, Baileys, and generic gateways
+        key_id = data.get('key', {}).get('id') if isinstance(data.get('key'), dict) else None
+        return key_id or data.get('message_id') or data.get('id') or 'gateway_msg_sent'
 
     def _send_mock(self, to_number: str, body: str) -> str:
         mock_id = f"DF_WA_{uuid.uuid4().hex[:12].upper()}"

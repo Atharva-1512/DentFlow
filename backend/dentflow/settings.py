@@ -251,9 +251,14 @@ WHATSAPP_CLOUD_API_PHONE_NUMBER_ID = os.getenv('WHATSAPP_CLOUD_API_PHONE_NUMBER_
 WHATSAPP_TWILIO_ACCOUNT_SID = os.getenv('WHATSAPP_TWILIO_ACCOUNT_SID', '')
 WHATSAPP_TWILIO_AUTH_TOKEN = os.getenv('WHATSAPP_TWILIO_AUTH_TOKEN', '')
 
-# Generic WhatsApp HTTP Gateway credentials
+# Generic WhatsApp HTTP / Evolution API Gateway credentials
 WHATSAPP_GATEWAY_URL = os.getenv('WHATSAPP_GATEWAY_URL', '')
 WHATSAPP_GATEWAY_SECRET = os.getenv('WHATSAPP_GATEWAY_SECRET', '')
+WHATSAPP_INSTANCE_NAME = os.getenv('WHATSAPP_INSTANCE_NAME', 'dentflow')
+WHATSAPP_BROADCAST_DELAY_SECONDS = float(os.getenv('WHATSAPP_BROADCAST_DELAY_SECONDS', '2.0'))
+
+# Reminder Timing Configuration (Default: 24 Hours prior to appointment)
+PATIENT_REMINDER_HOURS_PRIOR = int(os.getenv('PATIENT_REMINDER_HOURS_PRIOR', '24'))
 
 # Legacy microservice settings (backward compatibility)
 WHATSAPP_SERVICE_URL = os.getenv('WHATSAPP_SERVICE_URL', 'http://localhost:3001')

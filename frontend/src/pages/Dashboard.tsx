@@ -48,6 +48,7 @@ import {
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { toastRef } from '../context/ToastContext';
+import CampaignDialog from '../components/Notifications/CampaignDialog';
 
 // ==========================================
 // Accounts Menu Dialog
@@ -104,6 +105,7 @@ const ClinicOwnerDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<number>(0); // 0 = Menu, 1 = Schedule
   const [accountsOpen, setAccountsOpen] = useState(false);
+  const [campaignOpen, setCampaignOpen] = useState(false);
   const [fabOpen, setFabOpen] = useState(false);
 
   // Fetch metrics/records
@@ -170,7 +172,7 @@ const ClinicOwnerDashboard: React.FC = () => {
     { text: 'Settings', icon: <SettingsIcon sx={{ fontSize: 32, color: '#4A5568' }} />, path: '/settings' },
     { text: 'Appointments', icon: <CalendarIcon sx={{ fontSize: 32, color: '#DD6B20' }} />, path: '/appointments/today' },
     { text: 'Accounts', icon: <AccountsIcon sx={{ fontSize: 32, color: '#805AD5' }} />, path: '/accounts' },
-    { text: 'Campaign', icon: <CampaignIcon sx={{ fontSize: 32, color: 'primary.main' }} />, action: () => toastRef.show('Campaign feature is coming soon!', 'info') },
+    { text: 'Campaign', icon: <CampaignIcon sx={{ fontSize: 32, color: '#25D366' }} />, action: () => setCampaignOpen(true) },
     { text: 'Reports', icon: <ReportsIcon sx={{ fontSize: 32, color: '#319795' }} />, action: () => toastRef.show('Reports feature is coming soon!', 'info') },
     { text: 'Prescription', icon: <PrescriptionIcon sx={{ fontSize: 32, color: '#D69E2E' }} />, action: () => toastRef.show('Prescription feature is coming soon!', 'info') },
     { text: 'Inventory', icon: <InventoryIcon sx={{ fontSize: 32, color: '#4A5568' }} />, action: () => toastRef.show('Inventory feature is coming soon!', 'info') },
@@ -405,6 +407,9 @@ const ClinicOwnerDashboard: React.FC = () => {
 
       {/* Accounts Dialog */}
       <AccountsDialog open={accountsOpen} onClose={() => setAccountsOpen(false)} />
+
+      {/* WhatsApp Campaign & Festival Greetings Dialog */}
+      <CampaignDialog open={campaignOpen} onClose={() => setCampaignOpen(false)} />
     </Box>
   );
 };
