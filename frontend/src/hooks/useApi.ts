@@ -8,6 +8,7 @@ import type {
   ClinicSubscription,
   PaginatedResponse,
   Bill,
+  Clinic,
 } from '../types';
 
 // ---------------------------------------------------------------------------
@@ -154,6 +155,22 @@ export const useSubscription = () => {
     },
     retry: 1,
     staleTime: 60_000, // 1 min — billing data rarely changes mid-session
+  });
+};
+
+/**
+ * Fetch the current clinic profile (including doctors directory).
+ * Endpoint: GET /api/accounts/clinic/
+ */
+export const useClinic = () => {
+  return useQuery({
+    queryKey: ['clinic_profile'],
+    queryFn: async () => {
+      const res = await api.get('/accounts/clinic/');
+      return res.data as Clinic;
+    },
+    retry: 1,
+    staleTime: 60_000,
   });
 };
 

@@ -23,7 +23,7 @@ import {
   Divider,
 } from '@mui/material';
 import { Save as SaveIcon, ArrowBack as BackIcon } from '@mui/icons-material';
-import { usePatients, usePatient, useUnifiedVisit } from '../../hooks/useApi';
+import { usePatients, usePatient, useUnifiedVisit, useClinic } from '../../hooks/useApi';
 import { useToast } from '../../context/ToastContext';
 import { calculateAge, calculateDobFromAge } from '../../utils/date';
 import type { Patient } from '../../types';
@@ -72,6 +72,7 @@ const unifiedFormSchema = z.object({
   appointment: z.object({
     appointment_date: z.string().optional(),
     appointment_time: z.string().optional(),
+    consulting_doctor: z.string().optional(),
     appointment_type: z.enum(['CONSULTATION', 'PROCEDURE', 'FOLLOW_UP']).optional(),
     appointment_reason: z.string(),
   }).optional(),
@@ -154,6 +155,7 @@ export const UnifiedVisitForm: React.FC = () => {
   // Queries for searching existing patients & fetching a prefilled patient
   const { data: searchResults, isLoading: loadingPatients } = usePatients(searchQuery, 0);
   const { data: prefilledPatient, isLoading: loadingPrefilled } = usePatient(patientIdParam || '');
+  const { data: clinic } = useClinic();
 
   const unifiedMutation = useUnifiedVisit();
 
@@ -191,6 +193,7 @@ export const UnifiedVisitForm: React.FC = () => {
       appointment: {
         appointment_date: '',
         appointment_time: '',
+        consulting_doctor: '',
         appointment_type: 'CONSULTATION',
         appointment_reason: '',
       },
@@ -200,6 +203,32 @@ export const UnifiedVisitForm: React.FC = () => {
   const patientSelection = watch('patientSelection');
   const scheduleFollowUp = watch('scheduleFollowUp');
   const visitDoctor = watch('visit.consulting_doctor');
+
+  // Track if doctor assignee was manually modified by the user
+  const [assigneeManuallyChanged, setAssigneeManuallyChanged] = useState(false);
+
+  // Available doctor options compiled from today's doctor and clinic staff roster
+  const doctorOptions = React.useMemo(() => {
+    const list: string[] = [];
+    if (visitDoctor && visitDoctor.trim()) {
+      list.push(visitDoctor.trim());
+    }
+    if (clinic?.doctors && Array.isArray(clinic.doctors)) {
+      clinic.doctors.forEach((d) => {
+        if (d.name && d.name.trim() && !list.includes(d.name.trim())) {
+          list.push(d.name.trim());
+        }
+      });
+    }
+    return list;
+  }, [visitDoctor, clinic?.doctors]);
+
+  // Keep appointment assignee in sync with consulting doctor until user manually alters it
+  useEffect(() => {
+    if (!assigneeManuallyChanged && visitDoctor) {
+      setValue('appointment.consulting_doctor', visitDoctor);
+    }
+  }, [visitDoctor, assigneeManuallyChanged, setValue]);
 
   // Handle incoming patient_id param for "Start Visit" action
   useEffect(() => {
@@ -255,7 +284,7 @@ export const UnifiedVisitForm: React.FC = () => {
       appointmentPayload = {
         appointment_date: data.appointment.appointment_date,
         appointment_time: formattedTime,
-        consulting_doctor: data.visit.consulting_doctor, // default doctor
+        consulting_doctor: data.appointment.consulting_doctor?.trim() || data.visit.consulting_doctor,
         appointment_type: data.appointment.appointment_type,
         appointment_reason: data.appointment.appointment_reason || '',
       };
@@ -270,6 +299,7 @@ export const UnifiedVisitForm: React.FC = () => {
       {
         onSuccess: (response) => {
           showToast('Unified Patient & Visit details recorded successfully!', 'success');
+          setAssigneeManuallyChanged(false);
           reset();
           // Navigate to newly created or pre-selected patient detail page
           navigate(`/patients/${response.patient.id}`);
@@ -565,13 +595,27 @@ export const UnifiedVisitForm: React.FC = () => {
                 name="visit.consulting_doctor"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Consulting Doctor"
-                    fullWidth
-                    error={!!errors.visit?.consulting_doctor}
-                    helperText={errors.visit?.consulting_doctor?.message}
-                    id="visit-consulting-doctor"
+                  <Autocomplete
+                    freeSolo
+                    openOnFocus
+                    options={(clinic?.doctors?.map((d) => d.name).filter(Boolean) as string[]) || []}
+                    value={field.value ?? ''}
+                    onChange={(_event, newValue) => {
+                      field.onChange(newValue || '');
+                    }}
+                    onInputChange={(_event, newInputValue) => {
+                      field.onChange(newInputValue);
+                    }}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Consulting Doctor"
+                        fullWidth
+                        error={!!errors.visit?.consulting_doctor}
+                        helperText={errors.visit?.consulting_doctor?.message}
+                        id="visit-consulting-doctor"
+                      />
+                    )}
                   />
                 )}
               />
@@ -757,13 +801,42 @@ export const UnifiedVisitForm: React.FC = () => {
               </Grid>
 
               <Grid size={{ xs: 12, sm: 6 }}>
-                <TextField
-                  label="Doctor Assignee"
-                  value={visitDoctor || ''}
-                  disabled
-                  fullWidth
-                  helperText="Follow-up scheduled with the consulting doctor above."
-                  id="followup-doctor-readonly"
+                <Controller
+                  name="appointment.consulting_doctor"
+                  control={control}
+                  render={({ field }) => (
+                    <Autocomplete
+                      freeSolo
+                      openOnFocus
+                      options={doctorOptions}
+                      value={field.value ?? ''}
+                      onChange={(_event, newValue) => {
+                        setAssigneeManuallyChanged(true);
+                        field.onChange(newValue || '');
+                      }}
+                      onInputChange={(_event, newInputValue, reason) => {
+                        if (reason === 'input' || reason === 'clear') {
+                          setAssigneeManuallyChanged(true);
+                        }
+                        field.onChange(newInputValue);
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Doctor Assignee"
+                          fullWidth
+                          error={!!errors.appointment?.consulting_doctor}
+                          helperText={
+                            errors.appointment?.consulting_doctor?.message ||
+                            (assigneeManuallyChanged
+                              ? "Custom doctor assigned for this follow-up."
+                              : "Defaults to today's consulting doctor, but can be changed as needed.")
+                          }
+                          id="followup-doctor-assignee"
+                        />
+                      )}
+                    />
+                  )}
                 />
               </Grid>
 

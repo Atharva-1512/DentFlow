@@ -39,7 +39,30 @@ afterAll(() => {
   window.location = originalLocation;
 });
 
+// In Node 22+, globalThis.localStorage may be an unconfigured Storage object
+const localStorageMock = (() => {
+  let store: Record<string, string> = {};
+  return {
+    getItem: (key: string) => store[key] ?? null,
+    setItem: (key: string, value: string) => {
+      store[key] = String(value);
+    },
+    removeItem: (key: string) => {
+      delete store[key];
+    },
+    clear: () => {
+      store = {};
+    },
+    key: (index: number) => Object.keys(store)[index] ?? null,
+    get length() {
+      return Object.keys(store).length;
+    },
+  };
+})();
+Object.defineProperty(window, 'localStorage', { value: localStorageMock, configurable: true, writable: true });
+Object.defineProperty(globalThis, 'localStorage', { value: localStorageMock, configurable: true, writable: true });
+
 beforeEach(() => {
-  window.localStorage.clear();
+  window.localStorage?.clear();
   vi.clearAllMocks();
 });

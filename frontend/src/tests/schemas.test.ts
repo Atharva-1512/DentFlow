@@ -254,6 +254,29 @@ describe('unifiedVisitSchema — conditional validation', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts a follow-up appointment with a different custom doctor assignee', () => {
+    const result = unifiedVisitSchema.safeParse({
+      patientSelection: 'existing',
+      existingPatient: { id: '550e8400-e29b-41d4-a716-446655440000' },
+      visit: {
+        ...validVisit,
+        consulting_doctor: 'Dr. Saurabh',
+      },
+      scheduleFollowUp: true,
+      appointment: {
+        appointment_date: futureDateStr,
+        appointment_time: '14:00',
+        consulting_doctor: 'Dr. Aditi Deshmukh',
+        appointment_type: 'PROCEDURE',
+        appointment_reason: 'Root Canal Treatment',
+      },
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.appointment?.consulting_doctor).toBe('Dr. Aditi Deshmukh');
+    }
+  });
+
   it('skips appointment validation when scheduleFollowUp is false', () => {
     const result = unifiedVisitSchema.safeParse({
       patientSelection: 'existing',
